@@ -1,0 +1,3 @@
+[Anomaly Detected: Segment-3, Vibration Score: 0.55, Probable Cause: Bearing Wear, Severity: Medium]
+[Anomaly Detected: Segment-4, Vibration Score: 0.52, Probable Cause: Hot Box (Overheating), Severity: Medium]
+[Anomaly Detected: Segment-5, Vibration Score: 0.36, Probable Cause: Bearing Wear, Severity: Medium]
