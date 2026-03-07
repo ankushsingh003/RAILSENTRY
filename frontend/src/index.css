@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-text font-sans antialiased;
+  }
+}
+
+.glass {
+  @apply bg-card/80 backdrop-blur-md border border-border;
+}
+
+.premium-card {
+  @apply bg-card border border-border rounded-xl p-6 transition-all duration-300 hover:border-accent/40 hover:bg-card-hover;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-background;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-border rounded-full hover:bg-muted/40;
+}

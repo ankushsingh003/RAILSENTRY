@@ -1,13 +1,13 @@
 # 🏗️ Kavach-GenAI: Intelligent Rail Asset Guardian
 
-**Kavach-GenAI** is an end-to-end intelligent system designed to monitor Indian Railway assets using Machine Learning and provide expert maintenance consultancy through an Agentic RAG (Retrieval-Augmented Generation) system.
+**Kavach-GenAI** is an industry-grade intelligent system designed to monitor Indian Railway assets using Machine Learning and provide expert maintenance consultancy through an Agentic RAG (Retrieval-Augmented Generation) system.
 
 ## 🚀 Overview
 
 The project addresses critical railway safety priorities by:
 1.  **Predicting Failures**: Using a trained LSTM model to detect anomalies (vibrations, overheating, wear) in railway tracks and rolling stock.
-2.  **Reasoning with Expertise**: Leveraging an Agentic Workflow that queries official Indian Railways technical manuals (IRPWM, SOPs) to suggest repair plans.
-3.  **Real-time Dashboarding**: Providing a professional Streamlit interface for live monitoring and AI-driven safety consultancy.
+2.  **Reasoning with Expertise**: Leveraging an Agentic Workflow (LangGraph) that queries official Indian Railways technical manuals (IRPWM, SOPs) to suggest repair plans.
+3.  **Modern Dashboarding**: A high-end, industry-standard dashboard built with **React, TypeScript, and Tailwind CSS**.
 
 ---
 
@@ -15,88 +15,57 @@ The project addresses critical railway safety priorities by:
 
 ### 1. ML Training Layer (The Data Generator)
 - **Model**: LSTM-based Anomaly Detection (built with PyTorch).
-- **Data Source**: Adapted NASA C-MAPSS dataset for railway context (Vibrations, Axle Temp, Bearing Wear).
 - **Function**: Processes raw sensor data and generates structured "Event Logs".
 
 ### 2. Agentic RAG Layer (The Reasoning Engine)
 A modular LangGraph-based system featuring:
-- **Ingestion Agent**: Parses ML logs into actionable data.
-- **Research Agent**: Queries a local **FAISS Vector DB** containing IR technical manuals.
-- **Planning Agent**: Creates step-by-step repair plans and identifies nearest maintenance depots (e.g., Nagpur, Delhi, Karjat).
-- **Validation Agent**: Cross-checks plans against the latest **2026 Safety Circulars**.
+- **Ingestion, Research, Planning, and Validation Agents**.
+- **Vector DB**: Local FAISS index containing IR technical manuals.
 
-### 3. Frontend Dashboard
-- **Tech Stack**: Streamlit.
-- **UI/UX**: Dark-mode premium aesthetic with real-time alert cards and interactive AI advice panels.
+### 3. Backend API
+- **Tech Stack**: FastAPI (Python).
+- **Function**: Serves as the bridge between the Python ML/RAG logic and the TypeScript frontend.
+
+### 4. Frontend Dashboard
+- **Tech Stack**: React + Vite + TypeScript + Tailwind CSS.
+- **UI/UX**: Premium dark-mode aesthetic with real-time alert cards and interactive AI advice panels.
+
+---
+
+## 🚦 Getting Started
+
+### 1. Backend Setup
+```powershell
+# In the root directory
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+pip install fastapi uvicorn
+$env:GOOGLE_API_KEY = "your_google_ai_studio_api_key_here"
+python backend/main.py
+```
+
+### 2. Frontend Setup
+```powershell
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 
 ## 📂 Project Structure
 
 ```text
-├── data/
-│   ├── manuals/           # IR Technical Manuals (IRPWM, SOPs)
-│   ├── processed/         # Preprocessed training data
-│   └── logs/              # Generated ML Event Logs
-├── frontend/
-│   └── app.py             # Streamlit Dashboard
-├── ml/
-│   ├── models/            # Trained PyTorch model weights (.pth)
-│   ├── process_data.py    # Data preprocessing script
-│   ├── ml_model.py        # LSTM Architecture & Dataset
-│   ├── train.py           # Training script
-│   └── inference.py       # Event log generation pipeline
+├── backend/               # FastAPI API Layer
+├── frontend/              # React + Vite + TypeScript Dashboard
 ├── rag/
-│   ├── agents/            # Modular LangGraph Agents
-│   │   ├── base.py        # Shared state & components
-│   │   ├── ingestion.py   # Ingestion Agent logic
-│   │   ├── research.py    # Research Agent (Vector DB Search)
-│   │   ├── planning.py    # Planning Agent (Maintenance Strategy)
-│   │   └── validation.py  # Validation Agent (Safety Compliance)
+│   ├── agents/            # Modular LangGraph Agents (Ingestion, Research, etc.)
 │   ├── vector_db/         # FAISS Vector Index
-│   ├── vector_store.py    # Script to build Vector DB
-│   └── agents.py          # Main LangGraph Orchestrator
-└── requirements.txt       # Project dependencies
+├── ml/
+│   ├── models/            # Trained PyTorch model weights
+├── data/
+│   ├── manuals/           # IR Technical Manuals
+│   └── logs/              # Generated ML Event Logs
+└── README.md
 ```
-
----
-
-## 🚦 Getting Started
-
-### 1. Environment Setup
-Clone the repository and create a virtual environment:
-```powershell
-git clone https://github.com/ankushsingh003/__.git
-cd __
-python -m venv venv
-.\venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 2. Set API Keys
-The Agentic RAG layer requires a Google Gemini Pro API Key:
-```powershell
-$env:GOOGLE_API_KEY = "your_google_ai_studio_api_key_here"
-```
-
-### 3. Launch the Dashboard
-```powershell
-streamlit run frontend/app.py
-```
-
----
-
-## 📜 Domain specific Knowledge
-The system is trained to follow:
-- **Indian Railways Permanent Way Manual (IRPWM)**: For track maintenance and vibration thresholds.
-- **LHB Coach Maintenance SOPs**: For axle temperature ('Hot Box' detection) and bearing repairs.
-- **2026 Safety Circulars**: Enforcing strict speed limits and manual validation protocols for automated alerts.
-
----
-
-## 🚀 Why this project?
-- **Real-time Value**: Not just summarizing PDFs, but reacting to live data generated by ML models.
-- **Agentic Power**: The system doesn't just say "there is a crack"; it identifies the location, checks the 2024 manual, suggests a speed limit, and dispatches a repair team immediately.
-
----
-**Developed for Indian Railway Safety & Digital Transformation.**
