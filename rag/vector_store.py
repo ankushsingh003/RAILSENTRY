@@ -1,7 +1,7 @@
 from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_text_splitters import CharacterTextSplitter
-from langchain.docstore.document import Document
+from langchain_core.documents import Document
 import os
 
 def create_vector_db():
