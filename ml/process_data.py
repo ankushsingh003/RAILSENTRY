@@ -7,7 +7,7 @@ def load_data(data_path, file_name):
     # C-MAPSS data has no header and is space-delimited
     # Structure: UnitID, Cycle, OpSetting1, OpSetting2, OpSetting3, Sensor1...Sensor21
     col_names = ['unit_id', 'cycle', 'os1', 'os2', 'os3'] + [f's{i}' for i in range(1, 22)]
-    df = pd.read_csv(os.path.join(data_path, file_name), sep='\s+', header=None, names=col_names)
+    df = pd.read_csv(os.path.join(data_path, file_name), sep=r'\s+', header=None, names=col_names)
     return df
 
 def preprocess_for_railway(df):
