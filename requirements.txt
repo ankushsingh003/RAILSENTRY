@@ -1,0 +1,14 @@
+torch
+torchvision
+torchaudio
+langgraph
+langchain
+langchain-google-genai
+pinecone-client
+streamlit
+pandas
+numpy
+opencv-python
+scikit-learn
+python-dotenv
+pydantic
