@@ -1,0 +1,25 @@
+[Indian Railways Permanent Way Manual (IRPWM) - Section 5: Track Maintenance]
+
+5.1. Common Track Defects:
+- Cracks in Rails: If a crack is detected, it must be reported immediately. 
+- Rail Fractures: Any fracture exceeding 10mm must require immediate speed reduction to 20 km/h.
+- Vibration Anomalies: Higher vibration scores (above 0.8) usually indicate loose ballast or worn-out sleepers.
+
+5.2. Repair Procedures:
+- Crack Detection: Use Ultrasonic Flaw Detection (USFD). If a defect is classified as 'IMR' (Immediate Removal), the rail must be replaced within 24 hours.
+- Segment A42 Maintenance: This segment is prone to vibration due to the sharp curve. Regular packing of ballast is required.
+
+[LHB Coach Maintenance Schedule - SOP 2024]
+
+2.1. Wheel Overheating (Hot Box):
+- Definition: Axle temperature exceeding 80°C or 20°C above ambient is considered a 'Hot Box'.
+- Action: Detach the coach from the train immediately. Ensure bearing replacement at the nearest depot (e.g., Nagpur or Lucknow).
+
+2.2. Bearing Wear:
+- Signs: Audible noise and metallic vibration score > 0.7.
+- Repair: Replace spherical roller bearings during IOH (Intermediate Overhaul).
+
+[Safety Circular 2026]
+- All automated alerts from monitoring systems must be validated by a Safety Agent before repair deployment.
+- Nearest depots for Western Ghats: Karjat, Lonavala.
+- Nearest depots for Northern Plains: Delhi, Kanpur, Nagpur.
