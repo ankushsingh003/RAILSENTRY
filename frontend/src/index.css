@@ -1,44 +1,151 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #0a0a0b;
-  --color-secondary: #161618;
-  --color-accent: #3b82f6;
-  --color-danger: #ef4444;
+  --color-background: #080810;
+  --color-surface: #0d0d1a;
+  --color-secondary: #11111f;
+  --color-card: #13131f;
+  --color-card-hover: #1a1a2e;
+  --color-border: #1e1e35;
+  --color-border-glow: #3b82f640;
+  --color-accent: #6366f1;
+  --color-accent-2: #8b5cf6;
+  --color-accent-3: #3b82f6;
+  --color-danger: #f43f5e;
   --color-success: #10b981;
-  --color-card: #18181b;
-  --color-card-hover: #27272a;
-  --color-border: #27272a;
-  --color-text: #f4f4f5;
-  --color-text-muted: #a1a1aa;
+  --color-warning: #f59e0b;
+  --color-text: #e2e8f0;
+  --color-text-muted: #64748b;
 
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
 @layer base {
-  body {
-    @apply bg-background text-text font-sans antialiased;
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Glow utilities */
+@utility glow-accent {
+  box-shadow: 0 0 20px 2px #6366f125, 0 0 60px 4px #6366f112;
+}
+
+@utility glow-danger {
+  box-shadow: 0 0 20px 2px #f43f5e25, 0 0 60px 4px #f43f5e12;
+}
+
+@utility glow-success {
+  box-shadow: 0 0 20px 2px #10b98125, 0 0 60px 4px #10b98112;
 }
 
 @utility glass {
-  @apply bg-card/80 backdrop-blur-md border border-border;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 @utility premium-card {
-  @apply bg-card border border-border rounded-xl p-6 transition-all duration-300 hover:border-accent/40 hover:bg-card-hover;
+  background: linear-gradient(135deg, #13131f 0%, #0d0d1a 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-@layer utilities {
-  ::-webkit-scrollbar {
-    width: 8px;
+@utility text-gradient {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6, #3b82f6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Scan line animation */
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
   }
 
-  ::-webkit-scrollbar-track {
-    @apply bg-background;
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
   }
 
-  ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full hover:bg-white/10;
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
   }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% center;
+  }
+
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  background-size: 200% auto;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e1e35;
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2d2d50;
 }
