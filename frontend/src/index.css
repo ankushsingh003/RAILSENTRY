@@ -1,6 +1,19 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0a0a0b;
+  --color-secondary: #161618;
+  --color-accent: #3b82f6;
+  --color-danger: #ef4444;
+  --color-success: #10b981;
+  --color-card: #18181b;
+  --color-card-hover: #27272a;
+  --color-border: #27272a;
+  --color-text: #f4f4f5;
+  --color-text-muted: #a1a1aa;
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
 
 @layer base {
   body {
@@ -8,22 +21,24 @@
   }
 }
 
-.glass {
+@utility glass {
   @apply bg-card/80 backdrop-blur-md border border-border;
 }
 
-.premium-card {
+@utility premium-card {
   @apply bg-card border border-border rounded-xl p-6 transition-all duration-300 hover:border-accent/40 hover:bg-card-hover;
 }
 
-::-webkit-scrollbar {
-  width: 8px;
-}
+@layer utilities {
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
 
-::-webkit-scrollbar-track {
-  @apply bg-background;
-}
+  ::-webkit-scrollbar-track {
+    @apply bg-background;
+  }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-border rounded-full hover:bg-muted/40;
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full hover:bg-white/10;
+  }
 }
