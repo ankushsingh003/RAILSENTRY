@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, BarChart, Bar,
 } from 'recharts';
 import {
   Activity, AlertTriangle, ShieldCheck, LayoutDashboard, History,
   Settings, Search, ChevronRight, Zap, Clock, MapPin, Wrench,
   Bot, Train, Bell, RefreshCw, ArrowUpRight, ArrowDownRight,
-  CheckCircle2, Wifi, Menu, ChevronDown, Cpu, Shield
+  CheckCircle2, Wifi, Menu, ChevronDown, Shield, Radar
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -15,353 +16,373 @@ const API_BASE = "http://localhost:8000";
 
 interface Alert { id: number; message: string; timestamp: string; }
 
-const MOCK_SENSOR_DATA = Array.from({ length: 24 }, (_, i) => ({
+const MOCK_SENSOR = Array.from({ length: 24 }, (_, i) => ({
   hour: `${String(i).padStart(2, '0')}:00`,
   vibration: Math.floor(Math.random() * 60 + 20),
   temperature: Math.floor(Math.random() * 40 + 50),
   wear: Math.floor(Math.random() * 30 + 10),
 }));
 
-const MOCK_SEGMENT_HEALTH = [
-  { segment: 'SEG-01', health: 94, status: 'Nominal' },
-  { segment: 'SEG-04', health: 67, status: 'Degraded' },
-  { segment: 'SEG-07', health: 45, status: 'Critical' },
-  { segment: 'SEG-12', health: 88, status: 'Nominal' },
-  { segment: 'SEG-15', health: 72, status: 'Degraded' },
+const SEGMENT_HEALTH = [
+  { seg: 'SEG-01', val: 94, status: 'Nominal', color: '#10b981' },
+  { seg: 'SEG-04', val: 67, status: 'Degraded', color: '#f59e0b' },
+  { seg: 'SEG-07', val: 45, status: 'Critical', color: '#f43f5e' },
+  { seg: 'SEG-12', val: 88, status: 'Nominal', color: '#10b981' },
+  { seg: 'SEG-15', val: 72, status: 'Degraded', color: '#f59e0b' },
 ];
 
-const ZONE_STATS = [
-  { zone: 'Northern', active: 342, alerts: 2, status: 'green' },
-  { zone: 'Western', active: 287, alerts: 0, status: 'green' },
-  { zone: 'Eastern', active: 411, alerts: 5, status: 'red' },
-  { zone: 'Southern', active: 198, alerts: 1, status: 'yellow' },
+const ZONES = [
+  { zone: 'Northern', active: 342, alerts: 2, c: '#f43f5e' },
+  { zone: 'Western', active: 287, alerts: 0, c: '#10b981' },
+  { zone: 'Eastern', active: 411, alerts: 5, c: '#f43f5e' },
+  { zone: 'Southern', active: 198, alerts: 1, c: '#f59e0b' },
 ];
 
-/* ─── Reusable : Avatar / Status ──────────────────────────────────── */
-const PulseDot: React.FC<{ color?: string }> = ({ color = '#10b981' }) => (
-  <span className="relative flex h-2.5 w-2.5">
-    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
-      style={{ backgroundColor: color }} />
-    <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ backgroundColor: color }} />
+/* ── Pulse Dot ── */
+const PulseDot = ({ color = '#10b981' }: { color?: string }) => (
+  <span style={{ position: 'relative', display: 'inline-flex', width: 10, height: 10 }}>
+    <span className="animate-ping" style={{
+      position: 'absolute', inset: 0, borderRadius: '50%',
+      backgroundColor: color, opacity: 0.5
+    }} />
+    <span style={{ position: 'relative', width: 10, height: 10, borderRadius: '50%', backgroundColor: color }} />
   </span>
 );
 
-/* ─── Sidebar ─────────────────────────────────────────────────────── */
-const Sidebar: React.FC<{
-  activeTab: string; setActiveTab: (t: string) => void;
-  collapsed: boolean; setCollapsed: (v: boolean) => void;
-}> = ({ activeTab, setActiveTab, collapsed, setCollapsed }) => {
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'history', label: 'Historical Logs', icon: History },
-    { id: 'zones', label: 'Zone Monitor', icon: Train },
-    { id: 'alerts', label: 'Alert Center', icon: Bell },
-  ];
-  return (
-    <motion.aside
-      animate={{ width: collapsed ? 72 : 260 }}
-      transition={{ duration: 0.3, ease: 'easeInOut' }}
-      style={{
-        background: 'linear-gradient(180deg,#0f0f1e 0%,#090912 100%)',
-        borderRight: '1px solid rgba(99,102,241,0.12)'
-      }}
-      className="relative flex flex-col z-20 shrink-0 overflow-hidden"
-    >
-      {/* inner top glow stripe */}
-      <div className="absolute top-0 inset-x-0 h-px"
-        style={{ background: 'linear-gradient(90deg,transparent,#6366f150,transparent)' }} />
+/* ── Sidebar ── */
+const NAV = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'history', label: 'Historical Logs', icon: History },
+  { id: 'zones', label: 'Zone Monitor', icon: Train },
+  { id: 'alerts', label: 'Alert Center', icon: Bell },
+];
 
-      {/* Logo row */}
-      <div className="flex items-center justify-between px-4 py-5"
-        style={{ borderBottom: '1px solid rgba(99,102,241,0.1)' }}>
-        <AnimatePresence>
-          {!collapsed && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="flex items-center gap-3">
-              <div className="relative">
-                <div className="absolute inset-0 rounded-xl blur-md bg-indigo-500/40" />
-                <div className="relative bg-gradient-to-br from-indigo-500 to-violet-600 p-2 rounded-xl">
-                  <ShieldCheck className="text-white w-5 h-5" />
-                </div>
-              </div>
-              <div>
-                <span className="font-bold text-sm tracking-widest text-white">KAVACH AI</span>
-                <p className="text-[10px] text-indigo-400/70 tracking-wider uppercase">Rail Guardian</p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <button onClick={() => setCollapsed(!collapsed)}
-          className="p-2 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all">
-          <Menu size={17} />
-        </button>
-      </div>
+const Sidebar = ({ active, set, collapsed, toggle }: {
+  active: string; set: (s: string) => void; collapsed: boolean; toggle: () => void;
+}) => (
+  <motion.div
+    animate={{ width: collapsed ? 68 : 256 }}
+    transition={{ duration: 0.3, ease: 'easeInOut' }}
+    style={{
+      flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      background: 'linear-gradient(180deg,#0b0b1a 0%,#080812 100%)',
+      borderRight: '1px solid rgba(99,102,241,0.12)', position: 'relative', zIndex: 20,
+    }}
+  >
+    {/* top accent line */}
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0, height: 1,
+      background: 'linear-gradient(90deg,transparent,rgba(99,102,241,0.5),transparent)'
+    }} />
 
-      {/* Nav items */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navItems.map(({ id, label, icon: Icon }) => {
-          const active = activeTab === id;
-          return (
-            <button key={id} onClick={() => setActiveTab(id)}
-              className="w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all relative overflow-hidden"
-              style={active ? {
-                background: 'linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.1))',
-                border: '1px solid rgba(99,102,241,0.25)',
-                color: '#a5b4fc',
-              } : { color: '#3f4466' }}>
-              {active && (
-                <motion.div layoutId="activeNav"
-                  className="absolute left-0 top-1/4 bottom-1/4 w-0.5 rounded-full"
-                  style={{ background: 'linear-gradient(to bottom,#6366f1,#8b5cf6)' }} />
-              )}
-              <Icon size={17} className="shrink-0" />
-              <AnimatePresence>
-                {!collapsed && (
-                  <motion.span initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                    className="text-sm font-medium">{label}</motion.span>
-                )}
-              </AnimatePresence>
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Bottom */}
-      <div className="px-3 pb-4 space-y-1" style={{ borderTop: '1px solid rgba(99,102,241,0.1)' }}>
-        <button className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-slate-500 hover:text-white hover:bg-white/5 transition-all mt-4">
-          <Settings size={17} className="shrink-0" />
-          <AnimatePresence>
-            {!collapsed && (
-              <motion.span initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                className="text-sm font-medium">Settings</motion.span>
-            )}
-          </AnimatePresence>
-        </button>
+    {/* Logo */}
+    <div style={{ padding: '18px 14px', borderBottom: '1px solid rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <AnimatePresence>
         {!collapsed && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="mt-2 p-3 rounded-xl"
-            style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.12)' }}>
-            <div className="flex items-center gap-2">
-              <PulseDot />
-              <span className="text-[11px] font-semibold text-emerald-400">All Systems Online</span>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Logo icon */}
+            <div style={{ position: 'relative' }}>
+              <div style={{
+                position: 'absolute', inset: 0, borderRadius: 12, filter: 'blur(8px)',
+                background: 'rgba(99,102,241,0.4)',
+              }} />
+              <div style={{
+                position: 'relative', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                borderRadius: 10, padding: '7px', display: 'flex', alignItems: 'center',
+              }}>
+                <Radar size={18} color="white" />
+              </div>
             </div>
-            <p className="text-[10px] text-slate-600 mt-1 pl-4">Last sync: Just now</p>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 13, letterSpacing: '0.1em', color: '#fff', lineHeight: 1.2 }}>
+                RAILSENTRY
+              </div>
+              <div style={{ fontSize: 9, color: 'rgba(139,92,246,0.7)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+                AI Guardian
+              </div>
+            </div>
           </motion.div>
         )}
-      </div>
-    </motion.aside>
-  );
-};
+      </AnimatePresence>
+      <button onClick={toggle} style={{
+        padding: 8, borderRadius: 10, background: 'transparent', border: 'none', cursor: 'pointer',
+        color: '#475569', display: 'flex', alignItems: 'center',
+      }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLButtonElement).style.color = '#fff'; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#475569'; }}>
+        <Menu size={16} />
+      </button>
+    </div>
 
-/* ─── Stat Card ───────────────────────────────────────────────────── */
-const StatCard: React.FC<{
-  label: string; value: string; icon: React.ElementType;
-  gradient: string; accent: string; delta?: string; positive?: boolean;
-}> = ({ label, value, icon: Icon, gradient, accent, delta, positive }) => (
-  <motion.div whileHover={{ y: -4, scale: 1.02 }} transition={{ duration: 0.25 }}
-    className="relative rounded-2xl p-5 overflow-hidden cursor-default"
-    style={{ background: gradient, border: `1px solid ${accent}25` }}>
-    {/* Shimmer overlay */}
-    <div className="animate-shimmer absolute inset-0 rounded-2xl pointer-events-none" />
-    {/* Top glow */}
-    <div className="absolute top-0 inset-x-0 h-px" style={{ background: `linear-gradient(90deg,transparent,${accent}80,transparent)` }} />
+    {/* Nav */}
+    <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {NAV.map(({ id, label, icon: Icon }) => {
+        const on = active === id;
+        return (
+          <button key={id} onClick={() => set(id)} style={{
+            width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+            padding: '11px 12px', borderRadius: 12, cursor: 'pointer', position: 'relative',
+            background: on ? 'linear-gradient(135deg,rgba(99,102,241,0.18),rgba(139,92,246,0.08))' : 'transparent',
+            border: on ? '1px solid rgba(99,102,241,0.22)' : '1px solid transparent',
+            color: on ? '#a5b4fc' : '#374151', transition: 'all 0.2s',
+          }}
+            onMouseEnter={e => { if (!on) { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)'; (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8'; } }}
+            onMouseLeave={e => { if (!on) { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = '#374151'; } }}
+          >
+            {on && <div style={{
+              position: 'absolute', left: 0, top: '25%', bottom: '25%', width: 2,
+              background: 'linear-gradient(to bottom,#6366f1,#8b5cf6)', borderRadius: 99,
+            }} />}
+            <Icon size={16} style={{ flexShrink: 0 }} />
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.span initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                  style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
+                  {label}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </button>
+        );
+      })}
+    </nav>
 
-    <div className="relative flex items-start justify-between mb-4">
-      <div className="p-2.5 rounded-xl" style={{ background: `${accent}20`, border: `1px solid ${accent}30` }}>
-        <Icon size={19} style={{ color: accent }} />
+    {/* Bottom */}
+    <div style={{ padding: '10px 10px 14px', borderTop: '1px solid rgba(99,102,241,0.08)' }}>
+      <button style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px',
+        borderRadius: 12, background: 'transparent', border: 'none', cursor: 'pointer', color: '#374151',
+      }}>
+        <Settings size={16} style={{ flexShrink: 0 }} />
+        {!collapsed && <span style={{ fontSize: 13, fontWeight: 500 }}>Settings</span>}
+      </button>
+      {!collapsed && (
+        <div style={{
+          marginTop: 10, padding: '10px 12px', borderRadius: 12,
+          background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.12)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <PulseDot />
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#10b981' }}>Systems Online</span>
+          </div>
+          <p style={{ fontSize: 10, color: '#1e293b', marginTop: 4, paddingLeft: 18 }}>Last sync: just now</p>
+        </div>
+      )}
+    </div>
+  </motion.div>
+);
+
+/* ── Stat Card ── */
+const StatCard = ({ label, value, icon: Icon, accent, grad, delta, positive }: {
+  label: string; value: string; icon: React.ElementType; accent: string; grad: string;
+  delta?: string; positive?: boolean;
+}) => (
+  <motion.div whileHover={{ y: -3, scale: 1.02 }} transition={{ duration: 0.2 }}
+    className="animate-shimmer"
+    style={{
+      background: grad, border: `1px solid ${accent}20`, borderRadius: 16,
+      padding: '18px 20px', position: 'relative', overflow: 'hidden', cursor: 'default',
+    }}>
+    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg,transparent,${accent}70,transparent)` }} />
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+      <div style={{ padding: 10, borderRadius: 12, background: `${accent}15`, border: `1px solid ${accent}25` }}>
+        <Icon size={18} style={{ color: accent }} />
       </div>
       {delta && (
-        <span className="flex items-center gap-0.5 text-[10px] font-bold px-2 py-1 rounded-full"
-          style={{
-            background: positive ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)',
-            color: positive ? '#10b981' : '#f43f5e',
-          }}>
-          {positive ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+        <span style={{
+          display: 'flex', alignItems: 'center', gap: 2, fontSize: 10, fontWeight: 700,
+          padding: '3px 8px', borderRadius: 99,
+          background: positive ? 'rgba(16,185,129,0.12)' : 'rgba(244,63,94,0.12)',
+          color: positive ? '#10b981' : '#f43f5e',
+        }}>
+          {positive ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
           {delta}
         </span>
       )}
     </div>
-    <p className="text-xs text-slate-500 font-medium mb-1 relative">{label}</p>
-    <h3 className="text-2xl font-bold text-white relative">{value}</h3>
+    <p style={{ fontSize: 11, color: '#475569', fontWeight: 500, marginBottom: 4 }}>{label}</p>
+    <h3 style={{ fontSize: 26, fontWeight: 800, color: '#fff' }}>{value}</h3>
   </motion.div>
 );
 
-/* ─── Severity Badge ──────────────────────────────────────────────── */
-const SeverityBadge: React.FC<{ level: string }> = ({ level }) => {
-  const map: Record<string, { bg: string; text: string; border: string }> = {
-    High: { bg: 'rgba(244,63,94,0.12)', text: '#f43f5e', border: 'rgba(244,63,94,0.25)' },
-    Medium: { bg: 'rgba(245,158,11,0.12)', text: '#f59e0b', border: 'rgba(245,158,11,0.25)' },
-    Low: { bg: 'rgba(16,185,129,0.12)', text: '#10b981', border: 'rgba(16,185,129,0.25)' },
-  };
-  const s = map[level] || map.Medium;
-  return (
-    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border"
-      style={{ background: s.bg, color: s.text, borderColor: s.border }}>
-      {level}
-    </span>
-  );
-};
-
-/* ─── Alert Card ──────────────────────────────────────────────────── */
-const AlertCard: React.FC<{ alert: Alert; selected: boolean; onClick: () => void }> = ({
-  alert, selected, onClick
-}) => {
-  const severity = alert.message.includes('High') || alert.message.includes('Critical') ? 'High' : 'Medium';
-  const segment = alert.message.split('Segment-')[1]?.split(',')[0] || '??';
-
+/* ── Alert Card ── */
+const AlertCard = ({ alert, selected, onClick }: { alert: Alert; selected: boolean; onClick: () => void }) => {
+  const sev = alert.message.includes('High') || alert.message.includes('Critical') ? 'High' : 'Medium';
+  const seg = alert.message.split('Segment-')[1]?.split(',')[0] || '??';
   return (
     <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }} whileHover={{ scale: 1.01 }} transition={{ duration: 0.2 }}
+      exit={{ opacity: 0 }} whileHover={{ scale: 1.01 }} transition={{ duration: 0.2 }}
       onClick={onClick}
-      className="cursor-pointer rounded-2xl transition-all overflow-hidden"
-      style={selected ? {
-        background: 'linear-gradient(135deg,rgba(244,63,94,0.08),rgba(99,102,241,0.05))',
-        border: '1px solid rgba(244,63,94,0.3)',
-        boxShadow: '0 0 24px rgba(244,63,94,0.1)',
-      } : {
-        background: 'linear-gradient(135deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))',
-        border: '1px solid rgba(255,255,255,0.06)',
+      style={{
+        cursor: 'pointer', borderRadius: 14, overflow: 'hidden', transition: 'all 0.25s',
+        background: selected ? 'linear-gradient(135deg,rgba(244,63,94,0.08),rgba(99,102,241,0.05))' : 'rgba(255,255,255,0.025)',
+        border: selected ? '1px solid rgba(244,63,94,0.3)' : '1px solid rgba(255,255,255,0.07)',
+        boxShadow: selected ? '0 0 24px rgba(244,63,94,0.08)' : 'none',
       }}>
-      <div className="p-4 flex gap-3.5">
-        <div className="rounded-xl p-2.5 h-fit mt-0.5 shrink-0"
-          style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)' }}>
-          <AlertTriangle size={15} style={{ color: '#f43f5e' }} />
+      <div style={{ padding: '14px 16px', display: 'flex', gap: 12 }}>
+        <div style={{
+          padding: '9px', borderRadius: 10, flexShrink: 0, alignSelf: 'flex-start', marginTop: 2,
+          background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)',
+        }}>
+          <AlertTriangle size={14} color="#f43f5e" />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <SeverityBadge level={severity} />
-            <span className="text-[10px] text-slate-600 font-mono">
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <span style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+              padding: '2px 8px', borderRadius: 99,
+              background: sev === 'High' ? 'rgba(244,63,94,0.12)' : 'rgba(245,158,11,0.12)',
+              border: sev === 'High' ? '1px solid rgba(244,63,94,0.25)' : '1px solid rgba(245,158,11,0.25)',
+              color: sev === 'High' ? '#f43f5e' : '#f59e0b',
+            }}>{sev}</span>
+            <span style={{ fontSize: 10, color: '#1e293b', fontFamily: 'monospace' }}>
               {new Date(alert.timestamp).toLocaleTimeString()}
             </span>
           </div>
-          <p className="text-sm text-slate-300 font-medium leading-snug mb-2.5 line-clamp-2">
+          <p style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500, lineHeight: 1.5, marginBottom: 10 }}>
             {alert.message.replace(/[[\]]/g, '')}
           </p>
-          <div className="flex items-center gap-2">
-            {[
-              { icon: MapPin, label: `Seg-${segment}` },
-              { icon: Wrench, label: 'Immediate' },
-            ].map(({ icon: I, label }) => (
-              <span key={label} className="text-[10px] flex items-center gap-1 px-2 py-1 rounded-lg"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#475569' }}>
-                <I size={9} />{label}
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([[MapPin, `Seg-${seg}`], [Wrench, 'Immediate']] as [React.ElementType, string][]).map(([I, lbl]) => (
+              <span key={lbl} style={{
+                fontSize: 10, display: 'flex', alignItems: 'center', gap: 4,
+                padding: '3px 8px', borderRadius: 8,
+                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+                color: '#334155',
+              }}>
+                <I size={9} />{lbl}
               </span>
             ))}
           </div>
         </div>
-        <ChevronRight size={14} className="text-slate-600 self-center shrink-0 transition-transform"
-          style={selected ? { color: '#f43f5e', transform: 'translateX(3px)' } : {}} />
+        <ChevronRight size={13} style={{ color: selected ? '#f43f5e' : '#1e293b', alignSelf: 'center', flexShrink: 0 }} />
       </div>
       {selected && (
-        <div className="h-px" style={{ background: 'linear-gradient(90deg,#f43f5e,#6366f1,transparent)' }} />
+        <div style={{ height: 1, background: 'linear-gradient(90deg,#f43f5e,#6366f1,transparent)' }} />
       )}
     </motion.div>
   );
 };
 
-/* ─── AI Advisor ──────────────────────────────────────────────────── */
-const AdvisorPanel: React.FC<{ alert: Alert | null; advice: string; loading: boolean }> = ({
-  alert, advice, loading
-}) => (
-  <div className="h-full flex flex-col min-h-[520px] rounded-2xl overflow-hidden relative"
-    style={{
-      background: 'linear-gradient(135deg,#0d0d1f,#0a0a18)',
-      border: '1px solid rgba(99,102,241,0.15)',
-    }}>
-    {/* Glow corner */}
-    <div className="pointer-events-none absolute -top-24 -right-24 w-64 h-64 rounded-full"
-      style={{ background: 'radial-gradient(circle,rgba(99,102,241,0.12),transparent 70%)' }} />
-    <div className="pointer-events-none absolute -bottom-24 -left-24 w-64 h-64 rounded-full"
-      style={{ background: 'radial-gradient(circle,rgba(139,92,246,0.08),transparent 70%)' }} />
+/* ── AI Advisor ── */
+const Advisor = ({ alert, advice, loading }: { alert: Alert | null; advice: string; loading: boolean }) => (
+  <div style={{
+    display: 'flex', flexDirection: 'column', minHeight: 500, borderRadius: 16, overflow: 'hidden',
+    background: 'linear-gradient(160deg,#0c0c1e 0%,#090914 100%)',
+    border: '1px solid rgba(99,102,241,0.15)', position: 'relative',
+  }}>
+    {/* Corner glows */}
+    <div style={{ position: 'absolute', top: -60, right: -60, width: 180, height: 180, borderRadius: '50%', pointerEvents: 'none', background: 'radial-gradient(circle,rgba(99,102,241,0.12),transparent 70%)' }} />
+    <div style={{ position: 'absolute', bottom: -60, left: -60, width: 150, height: 150, borderRadius: '50%', pointerEvents: 'none', background: 'radial-gradient(circle,rgba(139,92,246,0.08),transparent 70%)' }} />
 
     {/* Header */}
-    <div className="relative px-5 py-4 flex items-center gap-3"
-      style={{ borderBottom: '1px solid rgba(99,102,241,0.1)', background: 'rgba(99,102,241,0.04)' }}>
-      <div className="relative">
-        <div className="absolute inset-0 rounded-xl blur-md bg-indigo-500/30" />
-        <div className="relative bg-gradient-to-br from-indigo-500/20 to-violet-600/20 p-2.5 rounded-xl border border-indigo-500/20">
-          <Bot size={18} style={{ color: '#a5b4fc' }} />
+    <div style={{
+      padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12,
+      borderBottom: '1px solid rgba(99,102,241,0.1)',
+      background: 'rgba(99,102,241,0.04)',
+    }}>
+      <div style={{ position: 'relative' }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 10, filter: 'blur(6px)', background: 'rgba(99,102,241,0.3)' }} />
+        <div style={{ position: 'relative', padding: 9, borderRadius: 10, background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.2)' }}>
+          <Bot size={16} color="#a5b4fc" />
         </div>
       </div>
       <div>
-        <h2 className="text-sm font-bold text-white">Intelligent Advisor</h2>
-        <p className="text-[10px] text-indigo-400/60">Powered by Gemini 1.5 Pro · IRPWM Knowledge Base</p>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Intelligent Advisor</div>
+        <div style={{ fontSize: 10, color: 'rgba(139,92,246,0.6)' }}>Gemini 1.5 Pro · IRPWM Knowledge Base</div>
       </div>
     </div>
 
     {/* Body */}
-    <div className="relative flex-1 p-5 flex flex-col">
+    <div style={{ flex: 1, padding: '18px', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {loading ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <div className="relative mb-6">
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-              className="w-16 h-16 rounded-full border-2"
-              style={{ borderColor: 'rgba(99,102,241,0.15)', borderTopColor: '#6366f1' }} />
-            <ShieldCheck size={22} className="absolute inset-0 m-auto" style={{ color: '#6366f1' }} />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <div style={{ position: 'relative', width: 60, height: 60 }}>
+            <div className="spin-slow" style={{
+              position: 'absolute', inset: 0, borderRadius: '50%',
+              border: '2px solid rgba(99,102,241,0.15)',
+              borderTopColor: '#6366f1',
+            }} />
+            <ShieldCheck size={20} color="#6366f1" style={{ position: 'absolute', inset: 0, margin: 'auto' }} />
           </div>
-          <h3 className="text-sm font-bold text-white mb-1">Deploying Agent Pipeline</h3>
-          <p className="text-xs text-slate-600 max-w-[200px] leading-relaxed mb-6">
-            Consulting IRPWM manuals & cross-referencing 2026 Safety Circulars...
-          </p>
-          <div className="space-y-2 w-full max-w-[240px]">
-            {['Ingestion Agent', 'Research Agent', 'Planning Agent', 'Validation Agent'].map((agent, i) => (
-              <motion.div key={agent}
-                initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.35 }}
-                className="flex items-center gap-3 px-3 py-2 rounded-xl"
-                style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.1)' }}>
-                <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.3 }}
-                  className="w-1.5 h-1.5 rounded-full" style={{ background: '#6366f1' }} />
-                <span className="text-xs text-slate-400">{agent}</span>
-                <Cpu size={10} className="ml-auto text-indigo-500/40" />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 6 }}>Deploying Agent Pipeline</div>
+            <p style={{ fontSize: 11, color: '#475569', maxWidth: 200, lineHeight: 1.6 }}>
+              Consulting IRPWM manuals & cross-referencing 2026 Safety Circulars...
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240, marginTop: 8 }}>
+            {['Ingestion Agent', 'Research Agent', 'Planning Agent', 'Validation Agent'].map((a, i) => (
+              <motion.div key={a}
+                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.3 }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.1)' }}>
+                <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.25 }}
+                  style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1' }} />
+                <span style={{ fontSize: 11, color: '#64748b' }}>{a}</span>
               </motion.div>
             ))}
           </div>
         </div>
       ) : advice ? (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col gap-4">
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-            style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
-            <CheckCircle2 size={14} style={{ color: '#10b981' }} />
-            <span className="text-xs font-semibold text-emerald-400">SOP Validated · Safety Compliant · IRPWM §2026</span>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+            <CheckCircle2 size={14} color="#10b981" />
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#10b981' }}>SOP Validated · Safety Compliant · IRPWM §2026</span>
           </div>
-          <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {advice.split('\n').filter(l => l.trim()).map((line, i) => (
-              <p key={i} className="text-sm leading-relaxed text-slate-400">{line}</p>
+              <p key={i} style={{ fontSize: 13, lineHeight: 1.7, color: '#64748b' }}>{line}</p>
             ))}
           </div>
-          <div className="pt-4 grid grid-cols-2 gap-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <button className="relative flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-white overflow-hidden transition-all hover:scale-[1.02]"
-              style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow: '0 4px 24px rgba(99,102,241,0.3)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <button style={{
+              padding: '12px', borderRadius: 12, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              fontSize: 13, fontWeight: 600, color: '#fff',
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+              boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
+            }}>
               <Wrench size={13} /> Work Order
             </button>
-            <button className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-slate-300 transition-all hover:scale-[1.02]"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <button style={{
+              padding: '12px', borderRadius: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              fontSize: 13, fontWeight: 600, color: '#94a3b8',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+            }}>
               <Train size={13} /> Dispatch
             </button>
           </div>
         </motion.div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center text-center">
-          <div className="mb-5 animate-float">
-            <div className="relative w-16 h-16">
-              <div className="absolute inset-0 rounded-2xl animate-ping opacity-20"
-                style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }} />
-              <div className="relative w-full h-full rounded-2xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg,rgba(99,102,241,0.15),rgba(139,92,246,0.15))', border: '1px solid rgba(99,102,241,0.2)' }}>
-                <Zap size={28} style={{ color: '#818cf8' }} />
-              </div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center' }}>
+          <div className="animate-float" style={{ position: 'relative', width: 60, height: 60 }}>
+            <div style={{
+              position: 'absolute', inset: 0, borderRadius: 16, opacity: 0.15,
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            }} />
+            <div className="animate-ping" style={{
+              position: 'absolute', inset: 0, borderRadius: 16, opacity: 0.1,
+              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            }} />
+            <div style={{
+              position: 'relative', width: '100%', height: '100%', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.12))',
+              border: '1px solid rgba(99,102,241,0.2)',
+            }}>
+              <Zap size={26} color="#818cf8" />
             </div>
           </div>
-          <h3 className="text-sm font-semibold text-white mb-1.5">Agentic Reasoning System</h3>
-          <p className="text-xs text-slate-600 max-w-[200px] leading-relaxed">
-            {alert ? 'Processing...' : 'Select an anomaly to invoke the Kavach AI expert system'}
-          </p>
-          <div className="mt-5 grid grid-cols-2 gap-2 w-full max-w-[240px]">
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 6 }}>Agentic Reasoning System</div>
+            <p style={{ fontSize: 12, color: '#334155', maxWidth: 200, lineHeight: 1.6 }}>
+              {alert ? 'Processing...' : 'Select an anomaly alert to invoke the Kavach AI expert system'}
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', maxWidth: 220 }}>
             {['Ingestion', 'Research', 'Planning', 'Validation'].map(a => (
-              <div key={a} className="flex items-center gap-2 px-2 py-2 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div className="w-1.5 h-1.5 rounded-full bg-indigo-900" />
-                <span className="text-[10px] text-slate-600">{a}</span>
+              <div key={a} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#1e293b' }} />
+                <span style={{ fontSize: 10, color: '#1e293b' }}>{a}</span>
               </div>
             ))}
           </div>
@@ -371,173 +392,149 @@ const AdvisorPanel: React.FC<{ alert: Alert | null; advice: string; loading: boo
   </div>
 );
 
-/* ─── Main Dashboard View ─────────────────────────────────────────── */
-const DashboardView: React.FC<{ alerts: Alert[]; loading: boolean; onRefresh: () => void }> = ({
-  alerts, loading, onRefresh
-}) => {
-  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+/* ── Dashboard ── */
+const Dashboard = ({ alerts, loading, refresh }: { alerts: Alert[]; loading: boolean; refresh: () => void }) => {
+  const [sel, setSel] = useState<Alert | null>(null);
   const [advice, setAdvice] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
 
-  const analyze = async (alert: Alert) => {
-    if (selectedAlert?.id === alert.id && advice) return;
-    setSelectedAlert(alert); setAdvice(''); setAnalyzing(true);
+  const analyze = async (a: Alert) => {
+    if (sel?.id === a.id && advice) return;
+    setSel(a); setAdvice(''); setAnalyzing(true);
     try {
-      const res = await axios.post(`${API_BASE}/analyze`, { message: alert.message });
-      setAdvice(res.data.advice);
+      const r = await axios.post(`${API_BASE}/analyze`, { message: a.message });
+      setAdvice(r.data.advice);
     } catch {
-      setAdvice('Could not reach the Reasoning Engine. Ensure the backend is running with a valid GOOGLE_API_KEY.');
+      setAdvice('Could not connect to backend. Run: python backend/main.py');
     } finally { setAnalyzing(false); }
   };
 
+  const TOOLTIP_STYLE = { background: '#0f0f1e', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, fontSize: 11, color: '#e2e8f0' };
+  const GRID_STROKE = 'rgba(255,255,255,0.04)';
+  const TICK = { fill: '#1e293b', fontSize: 10 };
+
   return (
-    <div className="space-y-6">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Stats */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Active Monitors" value="1,242" icon={Activity}
-          gradient="linear-gradient(135deg,#0e0e28,#0a0a1e)"
-          accent="#6366f1" delta="+3.2%" positive />
-        <StatCard label="Threats Detected" value={String(alerts.length)} icon={AlertTriangle}
-          gradient="linear-gradient(135deg,#1a0a10,#120810)"
-          accent="#f43f5e" delta="+1" positive={false} />
-        <StatCard label="System Uptime" value="99.9%" icon={Wifi}
-          gradient="linear-gradient(135deg,#071a12,#050f0c)"
-          accent="#10b981" delta="+0.1%" positive />
-        <StatCard label="Avg. Response" value="1.4s" icon={Clock}
-          gradient="linear-gradient(135deg,#1a1007,#100c05)"
-          accent="#f59e0b" delta="-0.3s" positive />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+        <StatCard label="Active Monitors" value="1,242" icon={Activity} accent="#6366f1" grad="linear-gradient(135deg,#0e0e28,#090916)" delta="+3.2%" positive />
+        <StatCard label="Threats Detected" value={String(alerts.length)} icon={AlertTriangle} accent="#f43f5e" grad="linear-gradient(135deg,#1a0a10,#100810)" delta="+1" />
+        <StatCard label="System Uptime" value="99.9%" icon={Wifi} accent="#10b981" grad="linear-gradient(135deg,#071a12,#040d09)" delta="+0.1%" positive />
+        <StatCard label="Avg. Response" value="1.4s" icon={Clock} accent="#f59e0b" grad="linear-gradient(135deg,#1a1007,#100c05)" delta="-0.3s" positive />
       </div>
 
       {/* Sensor Chart */}
-      <div className="rounded-2xl p-5 relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg,#0d0d1f,#0a0a15)', border: '1px solid rgba(99,102,241,0.1)' }}>
-        <div className="pointer-events-none absolute top-0 right-0 w-64 h-64 rounded-full"
-          style={{ background: 'radial-gradient(circle,rgba(99,102,241,0.06),transparent)' }} />
-        <div className="relative flex items-center justify-between mb-5">
+      <div className="premium-card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
           <div>
-            <h2 className="text-sm font-bold text-white">24-Hour Sensor Telemetry</h2>
-            <p className="text-xs text-slate-600 mt-0.5">Vibration · Axle Temperature · Bearing Wear</p>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 3 }}>24-Hour Sensor Telemetry</div>
+            <div style={{ fontSize: 11, color: '#334155' }}>Vibration · Axle Temperature · Bearing Wear</div>
           </div>
-          <div className="flex items-center gap-4 text-[10px] text-slate-600">
+          <div style={{ display: 'flex', gap: 16 }}>
             {[['#6366f1', 'Vibration'], ['#f43f5e', 'Temp'], ['#10b981', 'Wear']].map(([c, l]) => (
-              <div key={l} className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full" style={{ background: c }} />
-                {l}
+              <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#334155' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: c }} />{l}
               </div>
             ))}
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={190}>
-          <AreaChart data={MOCK_SENSOR_DATA}>
+        <ResponsiveContainer width="100%" height={180}>
+          <AreaChart data={MOCK_SENSOR}>
             <defs>
-              {[['vib', '#6366f1'], ['temp', '#f43f5e'], ['wear', '#10b981']].map(([id, c]) => (
+              {[['v', '#6366f1'], ['t', '#f43f5e'], ['w', '#10b981']].map(([id, c]) => (
                 <linearGradient key={id} id={id} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={c} stopOpacity={0.25} />
+                  <stop offset="5%" stopColor={c} stopOpacity={0.22} />
                   <stop offset="95%" stopColor={c} stopOpacity={0} />
                 </linearGradient>
               ))}
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-            <XAxis dataKey="hour" tick={{ fill: '#334155', fontSize: 10 }} tickLine={false} axisLine={false} interval={3} />
-            <YAxis tick={{ fill: '#334155', fontSize: 10 }} tickLine={false} axisLine={false} />
-            <Tooltip contentStyle={{ background: '#0f0f1e', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '12px', fontSize: 11, color: '#e2e8f0' }}
-              labelStyle={{ color: '#6366f1' }} />
-            <Area type="monotone" dataKey="vibration" stroke="#6366f1" strokeWidth={2} fill="url(#vib)" name="Vibration" />
-            <Area type="monotone" dataKey="temperature" stroke="#f43f5e" strokeWidth={2} fill="url(#temp)" name="Temperature" />
-            <Area type="monotone" dataKey="wear" stroke="#10b981" strokeWidth={2} fill="url(#wear)" name="Wear" />
+            <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+            <XAxis dataKey="hour" tick={TICK} tickLine={false} axisLine={false} interval={3} />
+            <YAxis tick={TICK} tickLine={false} axisLine={false} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <Area type="monotone" dataKey="vibration" stroke="#6366f1" strokeWidth={2} fill="url(#v)" name="Vibration" />
+            <Area type="monotone" dataKey="temperature" stroke="#f43f5e" strokeWidth={2} fill="url(#t)" name="Temperature" />
+            <Area type="monotone" dataKey="wear" stroke="#10b981" strokeWidth={2} fill="url(#w)" name="Wear" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
       {/* Alerts + Advisor */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Alert Feed */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="p-1.5 rounded-lg" style={{ background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)' }}>
-                <AlertTriangle size={15} style={{ color: '#f43f5e' }} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Feed */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ padding: 6, borderRadius: 8, background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)' }}>
+                <AlertTriangle size={14} color="#f43f5e" />
               </div>
-              <span className="text-sm font-bold text-white">Live ML Anomalies</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Live ML Anomalies</span>
               {alerts.length > 0 && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-rose-400"
-                  style={{ background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.2)' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: 'rgba(244,63,94,0.12)', border: '1px solid rgba(244,63,94,0.2)', color: '#f43f5e' }}>
                   {alerts.length}
                 </span>
               )}
             </div>
-            <button onClick={onRefresh}
-              className={`p-2 rounded-xl text-slate-600 hover:text-white transition-all ${loading ? 'animate-spin' : ''}`}
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <button onClick={refresh} className={loading ? 'spin-slow' : ''}
+              style={{ padding: 8, borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer', color: '#475569' }}>
               <RefreshCw size={13} />
             </button>
           </div>
 
-          <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 540, overflowY: 'auto' }}>
             <AnimatePresence>
               {alerts.length > 0 ? alerts.map(a => (
-                <AlertCard key={a.id} alert={a} selected={selectedAlert?.id === a.id} onClick={() => analyze(a)} />
+                <AlertCard key={a.id} alert={a} selected={sel?.id === a.id} onClick={() => analyze(a)} />
               )) : (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="flex flex-col items-center justify-center py-16 rounded-2xl"
-                  style={{ background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.06)' }}>
-                  <Activity size={36} className="mb-3" style={{ color: 'rgba(255,255,255,0.05)' }} />
-                  <p className="text-sm text-slate-600 font-medium">Scanning for track anomalies...</p>
-                  <p className="text-xs text-slate-700 mt-1">All systems nominal</p>
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', borderRadius: 14, background: 'rgba(255,255,255,0.01)', border: '1px dashed rgba(255,255,255,0.06)', textAlign: 'center' }}>
+                  <Activity size={36} color="rgba(255,255,255,0.05)" style={{ marginBottom: 12 }} />
+                  <p style={{ fontSize: 13, color: '#334155', fontWeight: 500 }}>Scanning for anomalies...</p>
+                  <p style={{ fontSize: 11, color: '#1e293b', marginTop: 4 }}>All systems nominal</p>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
         </div>
 
-        <AdvisorPanel alert={selectedAlert} advice={advice} loading={analyzing} />
+        <Advisor alert={sel} advice={advice} loading={analyzing} />
       </div>
 
-      {/* Zone Chart + Segment Table */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {/* Bar Chart */}
-        <div className="rounded-2xl p-5"
-          style={{ background: 'linear-gradient(135deg,#0d0d1f,#0a0a15)', border: '1px solid rgba(99,102,241,0.1)' }}>
-          <h2 className="text-sm font-bold text-white mb-0.5">Zone Monitor Distribution</h2>
-          <p className="text-xs text-slate-600 mb-5">Active sensors vs. alerts per zone</p>
-          <ResponsiveContainer width="100%" height={170}>
-            <BarChart data={ZONE_STATS} barSize={20} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-              <XAxis dataKey="zone" tick={{ fill: '#334155', fontSize: 10 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fill: '#334155', fontSize: 10 }} tickLine={false} axisLine={false} />
-              <Tooltip contentStyle={{ background: '#0f0f1e', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '12px', fontSize: 11, color: '#e2e8f0' }} />
+      {/* Zone Chart + Segment Health */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="premium-card">
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 3 }}>Zone Monitor Distribution</div>
+          <div style={{ fontSize: 11, color: '#334155', marginBottom: 18 }}>Active sensors vs active alerts per zone</div>
+          <ResponsiveContainer width="100%" height={165}>
+            <BarChart data={ZONES} barSize={18} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} />
+              <XAxis dataKey="zone" tick={TICK} tickLine={false} axisLine={false} />
+              <YAxis tick={TICK} tickLine={false} axisLine={false} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Bar dataKey="active" fill="#6366f1" radius={[5, 5, 0, 0]} name="Active Sensors" />
               <Bar dataKey="alerts" fill="#f43f5e" radius={[5, 5, 0, 0]} name="Active Alerts" />
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Segment Health */}
-        <div className="rounded-2xl p-5"
-          style={{ background: 'linear-gradient(135deg,#0d0d1f,#0a0a15)', border: '1px solid rgba(99,102,241,0.1)' }}>
-          <h2 className="text-sm font-bold text-white mb-0.5">Segment Health Index</h2>
-          <p className="text-xs text-slate-600 mb-5">Structural integrity scores — real-time</p>
-          <div className="space-y-4">
-            {MOCK_SEGMENT_HEALTH.map(s => {
-              const color = s.health > 80 ? '#10b981' : s.health > 60 ? '#f59e0b' : '#f43f5e';
-              return (
-                <div key={s.segment} className="flex items-center gap-3">
-                  <span className="text-[11px] font-mono text-slate-600 w-14 shrink-0">{s.segment}</span>
-                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.04)' }}>
-                    <motion.div
-                      initial={{ width: 0 }} animate={{ width: `${s.health}%` }}
-                      transition={{ duration: 1.2, ease: 'easeOut' }}
-                      className="h-full rounded-full"
-                      style={{ background: `linear-gradient(90deg,${color}aa,${color})`, boxShadow: `0 0 8px ${color}50` }}
-                    />
-                  </div>
-                  <span className="text-xs font-bold w-8 text-right text-white">{s.health}%</span>
-                  <span className="text-[10px] font-semibold w-16 text-right" style={{ color }}>
-                    {s.status}
-                  </span>
+        <div className="premium-card">
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 3 }}>Segment Health Index</div>
+          <div style={{ fontSize: 11, color: '#334155', marginBottom: 20 }}>Structural integrity scores — real-time</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {SEGMENT_HEALTH.map(s => (
+              <div key={s.seg} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#334155', width: 52, flexShrink: 0 }}>{s.seg}</span>
+                <div style={{ flex: 1, height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                  <motion.div
+                    initial={{ width: 0 }} animate={{ width: `${s.val}%` }}
+                    transition={{ duration: 1.2, ease: 'easeOut' }}
+                    style={{ height: '100%', borderRadius: 99, background: `linear-gradient(90deg,${s.color}99,${s.color})`, boxShadow: `0 0 8px ${s.color}60` }}
+                  />
                 </div>
-              );
-            })}
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', width: 30, textAlign: 'right' }}>{s.val}%</span>
+                <span style={{ fontSize: 10, fontWeight: 600, color: s.color, width: 58, textAlign: 'right' }}>{s.status}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -545,159 +542,136 @@ const DashboardView: React.FC<{ alerts: Alert[]; loading: boolean; onRefresh: ()
   );
 };
 
-/* ─── Root ────────────────────────────────────────────────────────── */
-const App: React.FC = () => {
+/* ── App Root ── */
+export default function App() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [tab, setTab] = useState('dashboard');
   const [collapsed, setCollapsed] = useState(false);
 
-  const fetchAlerts = async () => {
+  const fetch = async () => {
     setLoading(true);
     try {
-      const res = await axios.get(`${API_BASE}/alerts`);
-      setAlerts(res.data.alerts);
-    } catch { /* show empty state */ }
+      const r = await axios.get(`${API_BASE}/alerts`);
+      setAlerts(r.data.alerts);
+    } catch { }
     finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchAlerts();
-    const iv = setInterval(fetchAlerts, 5000);
-    return () => clearInterval(iv);
-  }, []);
+  useEffect(() => { fetch(); const iv = setInterval(fetch, 5000); return () => clearInterval(iv); }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#080810' }}>
-      {/* Ambient background gradients */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-80 -left-40 w-[700px] h-[700px] rounded-full"
-          style={{ background: 'radial-gradient(circle,rgba(99,102,241,0.06),transparent 70%)' }} />
-        <div className="absolute -bottom-80 -right-40 w-[600px] h-[600px] rounded-full"
-          style={{ background: 'radial-gradient(circle,rgba(244,63,94,0.04),transparent 70%)' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full"
-          style={{ background: 'radial-gradient(circle,rgba(139,92,246,0.03),transparent 70%)' }} />
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: '#080810', position: 'relative' }}>
+      {/* Ambient BG */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -200, left: -100, width: 600, height: 600, borderRadius: '50%', background: 'radial-gradient(circle,rgba(99,102,241,0.07),transparent 70%)' }} />
+        <div style={{ position: 'absolute', bottom: -200, right: -100, width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle,rgba(244,63,94,0.04),transparent 70%)' }} />
+        <div style={{ position: 'absolute', top: '40%', left: '40%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle,rgba(139,92,246,0.04),transparent 70%)' }} />
       </div>
 
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} collapsed={collapsed} setCollapsed={setCollapsed} />
+      <Sidebar active={tab} set={setTab} collapsed={collapsed} toggle={() => setCollapsed(!collapsed)} />
 
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', zIndex: 1 }}>
         {/* Header */}
-        <header className="h-[62px] flex items-center justify-between px-6 shrink-0"
-          style={{ borderBottom: '1px solid rgba(99,102,241,0.08)', background: 'rgba(8,8,16,0.8)', backdropFilter: 'blur(20px)' }}>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#2d3150' }} />
+        <div style={{
+          height: 60, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 24px', background: 'rgba(8,8,16,0.85)', backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(99,102,241,0.08)',
+        }}>
+          <div style={{ position: 'relative' }}>
+            <Search size={14} color="#1e293b" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
             <input placeholder="Search assets, segments, zones..."
-              className="pl-9 pr-4 py-2 w-72 text-sm rounded-xl focus:outline-none transition-all"
               style={{
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid rgba(255,255,255,0.05)',
+                paddingLeft: 36, paddingRight: 16, paddingTop: 8, paddingBottom: 8,
+                width: 280, fontSize: 13, borderRadius: 12, outline: 'none',
+                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
                 color: '#e2e8f0',
-                caretColor: '#6366f1',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.08)'; }}
-              onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'; e.currentTarget.style.boxShadow = 'none'; }}
-            />
+              }} />
           </div>
-
-          <div className="flex items-center gap-3">
-            {/* System Status */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold text-emerald-400"
-              style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 99, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
               <PulseDot />
-              System Online
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#10b981' }}>System Online</span>
             </div>
-
-            {/* Bell */}
-            <button className="relative p-2 rounded-xl text-slate-600 hover:text-white transition-all"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <button style={{
+              position: 'relative', padding: 8, borderRadius: 10, background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)', cursor: 'pointer', color: '#475569',
+            }}>
               <Bell size={15} />
               {alerts.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
-                  style={{ background: '#f43f5e', boxShadow: '0 0 6px rgba(244,63,94,0.6)' }} />
+                <div style={{ position: 'absolute', top: -2, right: -2, width: 8, height: 8, borderRadius: '50%', background: '#f43f5e', boxShadow: '0 0 8px rgba(244,63,94,0.6)' }} />
               )}
             </button>
-
-            {/* Avatar */}
-            <div className="flex items-center gap-2 pl-3" style={{ borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', boxShadow: '0 0 12px rgba(99,102,241,0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12, borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#fff', boxShadow: '0 0 14px rgba(99,102,241,0.35)' }}>
                 AK
               </div>
-              <div className="hidden sm:block">
-                <p className="text-xs font-semibold text-white">Ankush Singh</p>
-                <p className="text-[10px] text-slate-600">Senior Engineer</p>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>Ankush Singh</div>
+                <div style={{ fontSize: 10, color: '#1e293b' }}>Senior Engineer</div>
               </div>
-              <ChevronDown size={12} className="text-slate-600" />
+              <ChevronDown size={11} color="#1e293b" />
             </div>
           </div>
-        </header>
-
-        {/* Page */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto">
-            <AnimatePresence mode="wait">
-              {activeTab === 'dashboard' && (
-                <motion.div key="dashboard" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <div className="mb-6">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Shield size={16} style={{ color: '#6366f1' }} />
-                      <h1 className="text-lg font-bold text-white">Operations Dashboard</h1>
-                    </div>
-                    <p className="text-xs text-slate-600 ml-6">Real-time Indian Railway asset health monitoring · AI-powered anomaly detection</p>
-                  </div>
-                  <DashboardView alerts={alerts} loading={loading} onRefresh={fetchAlerts} />
-                </motion.div>
-              )}
-              {activeTab === 'history' && (
-                <motion.div key="history" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  className="flex flex-col items-center justify-center h-[60vh] text-center">
-                  <History size={44} className="mb-4" style={{ color: 'rgba(99,102,241,0.15)' }} />
-                  <h2 className="text-base font-semibold text-white">Historical Logs</h2>
-                  <p className="text-sm text-slate-600 mt-2">Connect to the backend to view historical anomaly data.</p>
-                </motion.div>
-              )}
-              {activeTab === 'zones' && (
-                <motion.div key="zones" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <div className="mb-6">
-                    <h1 className="text-lg font-bold text-white">Zone Monitor</h1>
-                    <p className="text-xs text-slate-600 mt-0.5">Geographic zone health and alert distribution</p>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {ZONE_STATS.map(z => {
-                      const c = z.status === 'green' ? '#10b981' : z.status === 'yellow' ? '#f59e0b' : '#f43f5e';
-                      return (
-                        <div key={z.zone} className="rounded-2xl p-5"
-                          style={{ background: 'linear-gradient(135deg,#0d0d1f,#0a0a15)', border: `1px solid ${c}15` }}>
-                          <div className="flex items-center justify-between mb-4">
-                            <span className="text-sm font-bold text-white">{z.zone}</span>
-                            <PulseDot color={c} />
-                          </div>
-                          <p className="text-3xl font-bold text-white">{z.active}</p>
-                          <p className="text-xs text-slate-600 mt-1">Active Sensors</p>
-                          <p className="text-xs font-semibold mt-3" style={{ color: c }}>
-                            {z.alerts > 0 ? `⚠ ${z.alerts} alert${z.alerts > 1 ? 's' : ''}` : '✓ All Clear'}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </motion.div>
-              )}
-              {activeTab === 'alerts' && (
-                <motion.div key="alerts" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  className="flex flex-col items-center justify-center h-[60vh] text-center">
-                  <Bell size={44} className="mb-4" style={{ color: 'rgba(244,63,94,0.15)' }} />
-                  <h2 className="text-base font-semibold text-white">Alert Center</h2>
-                  <p className="text-sm text-slate-600 mt-2">Priority-queued alert management — coming soon.</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
         </div>
-      </main>
+
+        {/* Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+          <AnimatePresence mode="wait">
+            {tab === 'dashboard' && (
+              <motion.div key="dash" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Shield size={16} color="#6366f1" />
+                    <h1 style={{ fontSize: 18, fontWeight: 800, color: '#fff' }}>Operations Dashboard</h1>
+                  </div>
+                  <p style={{ fontSize: 11, color: '#1e293b', paddingLeft: 24 }}>Real-time Indian Railway asset health monitoring · AI-powered anomaly detection</p>
+                </div>
+                <Dashboard alerts={alerts} loading={loading} refresh={fetch} />
+              </motion.div>
+            )}
+            {tab === 'history' && (
+              <motion.div key="hist" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' }}>
+                <History size={42} color="rgba(99,102,241,0.15)" style={{ marginBottom: 14 }} />
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Historical Logs</div>
+                <p style={{ fontSize: 13, color: '#334155' }}>Connect to the backend to view historical anomaly data.</p>
+              </motion.div>
+            )}
+            {tab === 'zones' && (
+              <motion.div key="zones" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                <div style={{ marginBottom: 20 }}>
+                  <h1 style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Zone Monitor</h1>
+                  <p style={{ fontSize: 11, color: '#1e293b' }}>Geographic zone health and sensor distribution</p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+                  {ZONES.map(z => (
+                    <div key={z.zone} className="premium-card" style={{ border: `1px solid ${z.c}15` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{z.zone}</span>
+                        <PulseDot color={z.c} />
+                      </div>
+                      <div style={{ fontSize: 28, fontWeight: 800, color: '#fff' }}>{z.active}</div>
+                      <p style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>Active Sensors</p>
+                      <p style={{ fontSize: 11, fontWeight: 600, marginTop: 12, color: z.c }}>
+                        {z.alerts > 0 ? `⚠ ${z.alerts} alert${z.alerts > 1 ? 's' : ''}` : '✓ All Clear'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+            {tab === 'alerts' && (
+              <motion.div key="alrts" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' }}>
+                <Bell size={42} color="rgba(244,63,94,0.15)" style={{ marginBottom: 14 }} />
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Alert Center</div>
+                <p style={{ fontSize: 13, color: '#334155' }}>Priority-queued alert management — coming soon.</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
-};
-
-export default App;
+}

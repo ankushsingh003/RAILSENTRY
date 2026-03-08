@@ -2,104 +2,65 @@
 
 @theme {
   --color-background: #080810;
-  --color-surface: #0d0d1a;
-  --color-secondary: #11111f;
-  --color-card: #13131f;
-  --color-card-hover: #1a1a2e;
+  --color-secondary: #0d0d1a;
+  --color-card: #0f0f1c;
+  --color-card-hover: #151528;
   --color-border: #1e1e35;
-  --color-border-glow: #3b82f640;
   --color-accent: #6366f1;
-  --color-accent-2: #8b5cf6;
-  --color-accent-3: #3b82f6;
   --color-danger: #f43f5e;
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-text: #e2e8f0;
-  --color-text-muted: #64748b;
-
+  --color-text-muted: #475569;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 }
 
-@layer base {
-
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-  }
-
-  html {
-    scroll-behavior: smooth;
-  }
-
-  body {
-    background-color: var(--color-background);
-    color: var(--color-text);
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-  }
+/* Critical base */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-/* Glow utilities */
-@utility glow-accent {
-  box-shadow: 0 0 20px 2px #6366f125, 0 0 60px 4px #6366f112;
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
 }
 
-@utility glow-danger {
-  box-shadow: 0 0 20px 2px #f43f5e25, 0 0 60px 4px #f43f5e12;
+body {
+  background: #080810;
+  color: #e2e8f0;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
 }
 
-@utility glow-success {
-  box-shadow: 0 0 20px 2px #10b98125, 0 0 60px 4px #10b98112;
-}
-
-@utility glass {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+/* Reusable CSS classes (not @utility to avoid Tailwind v4 issues) */
+.glass {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-@utility premium-card {
-  background: linear-gradient(135deg, #13131f 0%, #0d0d1a 100%);
-  border: 1px solid var(--color-border);
+.premium-card {
+  background: linear-gradient(135deg, #0f0f1c 0%, #0a0a16 100%);
+  border: 1px solid rgba(99, 102, 241, 0.1);
   border-radius: 1rem;
-  padding: 1.5rem;
+  padding: 1.25rem;
   transition: all 0.3s ease;
   position: relative;
-  overflow: hidden;
 }
 
-@utility text-gradient {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6, #3b82f6);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.premium-card:hover {
+  border-color: rgba(99, 102, 241, 0.2);
 }
 
-/* Scan line animation */
-@keyframes scanline {
-  0% {
-    transform: translateY(-100%);
-  }
-
-  100% {
-    transform: translateY(100vh);
-  }
-}
-
-@keyframes pulse-ring {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-
-  100% {
-    transform: scale(2.5);
-    opacity: 0;
-  }
-}
-
+/* Animations */
 @keyframes float {
 
   0%,
@@ -114,27 +75,41 @@
 
 @keyframes shimmer {
   0% {
-    background-position: -200% center;
+    background-position: -400% center;
   }
 
   100% {
-    background-position: 200% center;
+    background-position: 400% center;
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
   }
 }
 
 .animate-float {
-  animation: float 3s ease-in-out infinite;
+  animation: float 4s ease-in-out infinite;
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
-  background-size: 200% auto;
-  animation: shimmer 3s linear infinite;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.04) 50%, transparent 100%);
+  background-size: 400% auto;
+  animation: shimmer 4s linear infinite;
+}
+
+.spin-slow {
+  animation: spin-slow 2s linear infinite;
 }
 
 /* Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 ::-webkit-scrollbar-track {
@@ -148,4 +123,9 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #2d2d50;
+}
+
+/* Input placeholder */
+input::placeholder {
+  color: #334155;
 }
