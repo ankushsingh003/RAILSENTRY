@@ -1,34 +1,83 @@
-# 🏗️ Kavach-GenAI: Intelligent Rail Asset Guardian
+# 📡 RailSentry AI: Next-Gen Railway Asset Guardian
 
-**Kavach-GenAI** is an industry-grade intelligent system designed to monitor Indian Railway assets using Machine Learning and provide expert maintenance consultancy through an Agentic RAG (Retrieval-Augmented Generation) system.
+**RailSentry AI** is a premium, industry-grade intelligent system designed to monitor Indian Railway assets using Machine Learning and provide expert maintenance consultancy through an Agentic RAG (Retrieval-Augmented Generation) system.
 
 ## 🚀 Overview
 
 The project addresses critical railway safety priorities by:
-1.  **Predicting Failures**: Using a trained LSTM model to detect anomalies (vibrations, overheating, wear) in railway tracks and rolling stock.
-2.  **Reasoning with Expertise**: Leveraging an Agentic Workflow (LangGraph) that queries official Indian Railways technical manuals (IRPWM, SOPs) to suggest repair plans.
-3.  **Modern Dashboarding**: A high-end, industry-standard dashboard built with **React, TypeScript, and Tailwind CSS**.
+1.  **Predicting Failures**: Using a trained LSTM model to detect anomalies (vibration, heat, wear) in real-time.
+2.  **Reasoning with Expertise**: A multi-agent system (Gemini 1.5 Pro) that consults IRPWM safety manuals and SOPs.
+3.  **Elite Dashboarding**: A high-fidelity, corporate-aesthetic cockpit built with **React, TypeScript, and Framer Motion**.
 
 ---
 
-## 🛠️ Architecture
+## 🏗️ System Architecture
 
-### 1. ML Training Layer (The Data Generator)
-- **Model**: LSTM-based Anomaly Detection (built with PyTorch).
-- **Function**: Processes raw sensor data and generates structured "Event Logs".
+```mermaid
+graph TD
+    subgraph "Edge / Sensor Layer"
+        S1[Vibration Sensors] --> DC[Data Collection]
+        S2[Thermal Sensors] --> DC
+        S3[Acoustic Sensors] --> DC
+    end
 
-### 2. Agentic RAG Layer (The Reasoning Engine)
-A modular LangGraph-based system featuring:
-- **Ingestion, Research, Planning, and Validation Agents**.
-- **Vector DB**: Local FAISS index containing IR technical manuals.
+    subgraph "ML Core (PyTorch)"
+        DC --> INF[LSTM Inference Engine]
+        INF --> LOGS[Anomaly Event Logs]
+    end
 
-### 3. Backend API
-- **Tech Stack**: FastAPI (Python).
-- **Function**: Serves as the bridge between the Python ML/RAG logic and the TypeScript frontend.
+    subgraph "Backend API (FastAPI)"
+        LOGS --> API[FastAPI Server]
+        API --> AUTH[Auth & Context]
+    end
 
-### 4. Frontend Dashboard
-- **Tech Stack**: React + Vite + TypeScript + Tailwind CSS.
-- **UI/UX**: Premium dark-mode aesthetic with real-time alert cards and interactive AI advice panels.
+    subgraph "Agentic RAG Layer (LangGraph)"
+        API --> AGENTS[RailSentry Agents]
+        AGENTS --> KB[(Vector DB: IRPWM Manuals)]
+        AGENTS --> LLM[Gemini 1.5 Pro]
+    end
+
+    subgraph "Frontend Cockpit (React/TS)"
+        API <--> DASH[Premium Dashboard]
+    end
+```
+
+---
+
+## 🔄 Operation Workflow
+
+When an anomaly is detected, the **RailSentry AI** advisor follows this orchestrated path:
+
+```mermaid
+sequenceDiagram
+    participant S as Sensors
+    participant M as LSTM Model
+    participant B as Backend API
+    participant A as RailSentry Agents
+    participant V as Vector DB (SOPs)
+
+    S->>M: Continuous Telemetry
+    M->>M: Detect Anomaly
+    M->>B: Generate Event Log
+    B->>B: Post to Live Feed
+    Note over B,A: User selects alert in Dashboard
+    B->>A: Invoke Agent Pipeline
+    A->>V: Research Agent: Query IRPWM Manuals
+    V-->>A: Retrieve relevant SOPs & Manuals
+    A->>A: Planning Agent: Draft Repair SOP
+    A->>A: Validation Agent: Check 2026 Safety Circulars
+    A-->>B: Return Refined Expert Advice
+    B-->>B: Render in Intelligent Advisor Panel
+```
+
+---
+
+## 🛠️ Key Features
+
+- **Deep Space UI**: A premium dark-theme interface with custom glassmorphism and ambient glowing accents.
+- **24-Hour Telemetry**: Real-time visualization of vibration, axle temperature, and bearing wear.
+- **Segment Health Index**: Real-time status monitoring of structural integrity across geographical zones.
+- **Agentic Pipeline**: Multi-step reasoning (Ingestion → Research → Planning → Validation) for safe maintenance.
 
 ---
 
@@ -36,12 +85,12 @@ A modular LangGraph-based system featuring:
 
 ### 1. Backend Setup
 ```powershell
-# In the root directory
+# Root Directory
 python -m venv venv
 .\venv\Scripts\activate
 pip install -r requirements.txt
-pip install fastapi uvicorn
-$env:GOOGLE_API_KEY = "your_google_ai_studio_api_key_here"
+# Set your Gemini API Key
+$env:GOOGLE_API_KEY = "your_key"
 python backend/main.py
 ```
 
@@ -58,14 +107,12 @@ npm run dev
 
 ```text
 ├── backend/               # FastAPI API Layer
-├── frontend/              # React + Vite + TypeScript Dashboard
-├── rag/
-│   ├── agents/            # Modular LangGraph Agents (Ingestion, Research, etc.)
-│   ├── vector_db/         # FAISS Vector Index
-├── ml/
-│   ├── models/            # Trained PyTorch model weights
-├── data/
-│   ├── manuals/           # IR Technical Manuals
-│   └── logs/              # Generated ML Event Logs
-└── README.md
+├── frontend/              # Premium React + TypeScript Dashboard
+├── rag/                   # Agentic RAG System
+│   ├── agents/            # Multi-Agent Workflow Core
+│   └── vector_db/         # FAISS Index of Technical Manuals
+├── ml/                    # Machine Learning Pipeline
+│   ├── models/            # LSTM Model Weights
+│   └── inference.py       # Live Data Stream Simulation
+└── data/                  # Source manuals and generated logs
 ```
