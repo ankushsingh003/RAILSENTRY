@@ -26,22 +26,21 @@ _llm = None
 _vector_db = None
 
 # --- Shared Components ---
-def get_llm():
+def get_llm(force_reload: bool = False):
     global _llm
-    if _llm is None:
-        # Aggressively Reload .env to catch changes (strip anyway)
+    if _llm is None or force_reload:
+        # Always reload .env to pick up changes
         from dotenv import load_dotenv
         load_dotenv(override=True)
         google_api_key = os.getenv("GOOGLE_API_KEY")
         if google_api_key:
             google_api_key = google_api_key.strip(' "').strip("'")
             os.environ["GOOGLE_API_KEY"] = google_api_key
-            print(f"--- API Key DEBUG: len={len(google_api_key)} prefix={google_api_key[:10]} suffix={google_api_key[-5:]} ---")
-            print(f"--- Key Matches Env: {google_api_key == os.getenv('GOOGLE_API_KEY')} ---")
-        
-        print("--- Initializing Gemini 1.5 Pro ---")
-        # Ensure model name is correct (no 'models/' prefix)
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
+            print(f"--- API Key loaded: len={len(google_api_key)} ok ---")
+
+        print("--- Initializing Gemini 1.5 Flash ---")
+        # gemini-1.5-flash is widely available and fast
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
         # Bind tools to LLM
         tools = [check_maintenance_inventory, calculate_stress_index]
         _llm = llm.bind_tools(tools)

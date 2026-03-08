@@ -444,6 +444,8 @@ const Dashboard = ({ alerts, loading, refresh }: { alerts: Alert[]; loading: boo
                 setStreamInfo(prev => ({ ...prev, node: data.content }));
               } else if (data.type === 'tool') {
                 setStreamInfo(prev => ({ ...prev, tool: data.content }));
+              } else if (data.type === 'status') {
+                setStreamInfo(prev => ({ ...prev, status: data.content }));
               } else if (data.type === 'error') {
                 setAdvice(`Stream Error: ${data.content}`);
                 setAnalyzing(false);
