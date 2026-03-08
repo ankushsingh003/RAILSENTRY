@@ -53,30 +53,39 @@ async def stream_kavach_agent(log_report: str):
     Streams events from the agentic workflow.
     Yields JSON-formatted events for the frontend.
     """
-    inputs = {"anomaly_report": log_report, "tool_outputs": [], "iteration": 0}
-    
-    async for event in app.astream_events(inputs, version="v2"):
-        kind = event["event"]
+    try:
+        inputs = {"anomaly_report": log_report, "tool_outputs": [], "iteration": 0}
         
-        if kind == "on_chat_model_stream":
-            content = event["data"]["chunk"].content
-            if content:
-                yield f"data: {{\"type\": \"token\", \"content\": \"{content}\"}}\n\n"
-        
-        elif kind == "on_chain_start" and event["name"] == "LangGraph":
-            yield f"data: {{\"type\": \"status\", \"content\": \"Initializing RailSentry Pipeline...\"}}\n\n"
-        
-        elif kind == "on_chain_start" and event["metadata"].get("langgraph_node"):
-            node_name = event["metadata"]["langgraph_node"]
-            status = f"{node_name.title()} Agent active..."
-            if node_name == "critic": status = "Critic Agent auditing plan..."
-            yield f"data: {{\"type\": \"node\", \"content\": \"{status}\"}}\n\n"
+        # Use astream_events (v2) for granular token and node tracking
+        async for event in app.astream_events(inputs, version="v2"):
+            kind = event["event"]
+            
+            # Token streaming for LLM generation
+            if kind == "on_chat_model_stream":
+                content = event["data"]["chunk"].content
+                if content:
+                    yield f"data: {{\"type\": \"token\", \"content\": \"{content}\"}}\n\n"
+            
+            # Node lifecycle tracking
+            elif kind == "on_chain_start" and event["name"] == "LangGraph":
+                yield f"data: {{\"type\": \"status\", \"content\": \"Initializing RailSentry Pipeline...\"}}\n\n"
+            
+            elif kind == "on_chain_start" and event["metadata"].get("langgraph_node"):
+                node_name = event["metadata"]["langgraph_node"]
+                status = f"{node_name.title()} Agent active..."
+                if node_name == "critic": status = "Critic Agent auditing plan..."
+                yield f"data: {{\"type\": \"node\", \"content\": \"{status}\"}}\n\n"
 
-        elif kind == "on_tool_start":
-            tool_name = event["name"]
-            yield f"data: {{\"type\": \"tool\", \"content\": \"Executing tool: {tool_name}...\"}}\n\n"
+            # Tool use tracking
+            elif kind == "on_tool_start":
+                tool_name = event["name"]
+                yield f"data: {{\"type\": \"tool\", \"content\": \"Executing tool: {tool_name}...\"}}\n\n"
 
-    yield "data: {\"type\": \"done\", \"content\": \"\"}\n\n"
+        yield "data: {\"type\": \"done\", \"content\": \"\"}\n\n"
+    except Exception as e:
+        print(f"CRITICAL ERROR in stream_kavach_agent: {str(e)}")
+        yield f"data: {{\"type\": \"token\", \"content\": \"Error: {str(e)}\"}}\n\n"
+        yield "data: {\"type\": \"done\", \"content\": \"\"}\n\n"
 
 async def run_kavach_agent_legacy(log_report: str):
     """Backwards compatible non-streaming version."""

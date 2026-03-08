@@ -1,3 +1,4 @@
+from rag.agents.base import AgentState, get_vector_db
 from rag.agents.memory import get_past_context
 
 async def research_agent(state: AgentState):

@@ -1,5 +1,9 @@
 from typing import TypedDict
+import os
+from dotenv import load_dotenv
 from langchain_google_genai import ChatGoogleGenerativeAI
+
+load_dotenv() # Load from .env if it exists
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
