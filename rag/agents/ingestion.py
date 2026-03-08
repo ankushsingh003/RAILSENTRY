@@ -1,10 +1,9 @@
 import json
-from .base import AgentState, get_llm
-
-llm = get_llm()
+from rag.agents.base import AgentState, get_llm
 
 def ingestion_agent(state: AgentState):
     """Parses the raw ML event log."""
+    llm = get_llm()
     report = state["anomaly_report"]
     prompt = f"Parse this railway anomaly report into a JSON format with keys: segment, vibration_score, cause, severity.\nReport: {report}"
     response = llm.invoke(prompt)

@@ -375,7 +375,7 @@ const Advisor = ({ alert, advice, loading }: { alert: Alert | null; advice: stri
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 6 }}>Agentic Reasoning System</div>
             <p style={{ fontSize: 12, color: '#334155', maxWidth: 200, lineHeight: 1.6 }}>
-              {alert ? 'Processing...' : 'Select an anomaly alert to invoke the Kavach AI expert system'}
+              {alert ? 'Processing...' : 'Select an anomaly alert to invoke the RailSentry AI expert system'}
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', maxWidth: 220 }}>

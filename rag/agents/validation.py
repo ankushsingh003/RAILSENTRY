@@ -1,9 +1,8 @@
-from .base import AgentState, get_llm
-
-llm = get_llm()
+from rag.agents.base import AgentState, get_llm
 
 def validation_agent(state: AgentState):
     """Checks compliance with 2026 Safety Circulars."""
+    llm = get_llm()
     plan = state["maintenance_plan"]
     sop = state["research_results"]
     prompt = f"""Review this maintenance plan: {plan}

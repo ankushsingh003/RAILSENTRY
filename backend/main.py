@@ -1,6 +1,13 @@
+import sys
+import os
+
+# Absolute project root
+ROOT_DIR = r"d:\full_stack_ml"
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import os
 import pandas as pd
 from rag.agents import run_kavach_agent
 from typing import List, Dict

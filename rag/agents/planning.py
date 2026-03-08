@@ -1,9 +1,8 @@
-from .base import AgentState, get_llm
-
-llm = get_llm()
+from rag.agents.base import AgentState, get_llm
 
 def planning_agent(state: AgentState):
     """Suggests maintenance depot and tools."""
+    llm = get_llm()
     parsed = state["parsed_anomaly"]
     sop = state["research_results"]
     prompt = f"""Based on this anomaly: {parsed} and these SOPs: {sop}, 

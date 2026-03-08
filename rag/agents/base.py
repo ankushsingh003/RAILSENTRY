@@ -12,10 +12,19 @@ class AgentState(TypedDict):
     validation_status: str
     final_advice: str
 
+_llm = None
+_vector_db = None
+
 # --- Shared Components ---
 def get_llm():
-    return ChatGoogleGenerativeAI(model="gemini-1.5-pro")
+    global _llm
+    if _llm is None:
+        _llm = ChatGoogleGenerativeAI(model="models/gemini-1.5-pro")
+    return _llm
 
 def get_vector_db():
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    return FAISS.load_local(r"d:\full_stack_ml\rag\vector_db", embeddings, allow_dangerous_deserialization=True)
+    global _vector_db
+    if _vector_db is None:
+        embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+        _vector_db = FAISS.load_local(r"d:\full_stack_ml\rag\vector_db", embeddings, allow_dangerous_deserialization=True)
+    return _vector_db
