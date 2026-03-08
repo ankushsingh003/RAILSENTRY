@@ -13,9 +13,22 @@ from rag.agents import run_kavach_agent_legacy, stream_kavach_agent
 from typing import List, Dict
 from fastapi.responses import StreamingResponse
 
+from rag.agents.base import get_llm, get_vector_db
+
 app = FastAPI(title="Kavach-GenAI Backend API")
 
-# Add CORS middleware
+# Pre-initialize heavy components on startup
+@app.on_event("startup")
+async def startup_event():
+    print("--- Pre-loading ML/RAG Models... ---")
+    try:
+        get_llm()
+        get_vector_db()
+        print("--- Models Loaded Successfully ---")
+    except Exception as e:
+        print(f"--- Model Loading Warning: {e} ---")
+
+# ... (middleware stays same)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # In production, replace with specific frontend URL
@@ -83,8 +96,10 @@ async def get_historical_data():
     if not os.path.exists(PROCESSED_DATA_FILE):
         return {"data": []}
     
-    df = pd.read_csv(PROCESSED_DATA_FILE).head(100)
-    return {"data": df.to_dict(orient="records")}
+    # Read last 500 rows for the table
+    df = pd.read_csv(PROCESSED_DATA_FILE).tail(500)
+    # Ensure JSON serializable values
+    return {"data": df.fillna(0).to_dict(orient="records")}
 
 if __name__ == "__main__":
     import uvicorn

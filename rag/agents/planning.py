@@ -18,7 +18,11 @@ async def planning_agent(state: AgentState):
     If there is a critique, address it specifically in your improved plan.
     You may use tools if you need current inventory data."""
     
-    response = await llm.ainvoke(prompt)
-    state["maintenance_plan"] = response.content
+    # Use astream for real-time streaming in LangGraph
+    full_content = ""
+    async for chunk in llm.astream(prompt):
+        full_content += chunk.content
+    
+    state["maintenance_plan"] = full_content
     print(f"--- Planning Agent: Created/Refined Plan ---")
     return state

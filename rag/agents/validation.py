@@ -13,8 +13,12 @@ async def validation_agent(state: AgentState):
     Verify if it complies with '2026 Safety Circulars'.
     Output a 'VALIDATED' or 'REJECTED' status followed by the final refined advice."""
     
-    response = await llm.ainvoke(prompt)
-    final_advice = response.content
+    # Use astream for real-time streaming in LangGraph
+    full_content = ""
+    async for chunk in llm.astream(prompt):
+        full_content += chunk.content
+    
+    final_advice = full_content
     state["final_advice"] = final_advice
     
     # New: Persist to memory if validated

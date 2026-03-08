@@ -54,6 +54,9 @@ async def stream_kavach_agent(log_report: str):
     Yields JSON-formatted events for the frontend.
     """
     try:
+        # Immediate handshake to prevent browser timeout
+        yield f"data: {{\"type\": \"status\", \"content\": \"Handshake established. RailSentry AI waking up...\"}}\n\n"
+        
         inputs = {"anomaly_report": log_report, "tool_outputs": [], "iteration": 0}
         
         # Use astream_events (v2) for granular token and node tracking

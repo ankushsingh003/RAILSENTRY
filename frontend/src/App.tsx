@@ -376,7 +376,7 @@ const Advisor = ({ alert, advice, loading, streamInfo }: {
           <div>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 6 }}>RAG 2.0 Reasoning Engine</div>
             <p style={{ fontSize: 12, color: '#475569', maxWidth: 200, lineHeight: 1.6 }}>
-              {alert ? 'Initializing...' : 'Select an anomaly alert to invoke the RailSentry AI expert system'}
+              {alert ? (loading ? 'Contacting RailSentry...' : 'Initializing...') : 'Select an anomaly alert to invoke the RailSentry AI expert system'}
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', maxWidth: 220 }}>
@@ -412,8 +412,15 @@ const Dashboard = ({ alerts, loading, refresh }: { alerts: Alert[]; loading: boo
         body: JSON.stringify({ message: a.message }),
       });
 
+      if (!response.ok) {
+        const errText = await response.text();
+        setAdvice(`Error: ${response.status} - ${errText}`);
+        return;
+      }
+
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
+      let buffer = '';
 
       if (!reader) throw new Error("No reader");
 
@@ -421,26 +428,30 @@ const Dashboard = ({ alerts, loading, refresh }: { alerts: Alert[]; loading: boo
         const { value, done } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last partial line in the buffer
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
+          if (line.trim().startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.slice(6));
+              const data = JSON.parse(line.trim().slice(6));
               if (data.type === 'token') {
                 setAdvice(prev => prev + data.content);
               } else if (data.type === 'node') {
                 setStreamInfo(prev => ({ ...prev, node: data.content }));
               } else if (data.type === 'tool') {
                 setStreamInfo(prev => ({ ...prev, tool: data.content }));
-              } else if (data.type === 'status') {
-                setStreamInfo(prev => ({ ...prev, status: data.content }));
+              } else if (data.type === 'error') {
+                setAdvice(`Stream Error: ${data.content}`);
+                setAnalyzing(false);
               } else if (data.type === 'done') {
                 setAnalyzing(false);
               }
             } catch (e) {
-              console.error("Stream parse error", e);
+              console.error("Stream parse error", e, line);
             }
           }
         }
@@ -585,6 +596,236 @@ const Dashboard = ({ alerts, loading, refresh }: { alerts: Alert[]; loading: boo
   );
 };
 
+/* ── Historical Logs View ── */
+const HistoricalLogs = () => {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const r = await axios.get(`${API_BASE}/historical_data`);
+        setData(r.data.data);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    };
+    load();
+  }, []);
+
+  const filtered = data.filter(d =>
+    String(d.unit_id).includes(search) ||
+    String(d.vibration_score).includes(search)
+  ).slice(0, 100);
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1 style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Historical Telemetry</h1>
+          <p style={{ fontSize: 11, color: '#475569' }}>Accessing last 500 monitored cycles from processed sensor streams</p>
+        </div>
+        <div style={{ position: 'relative' }}>
+          <Search size={14} color="#1e293b" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} />
+          <input
+            placeholder="Search Unit ID..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              paddingLeft: 36, paddingRight: 16, paddingTop: 8, paddingBottom: 8,
+              width: 220, fontSize: 12, borderRadius: 10, outline: 'none',
+              background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)',
+              color: '#e2e8f0',
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="premium-card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                {['Unit ID', 'Cycle', 'Vibration', 'Severity Score', 'Timestamp'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '14px 20px', color: '#475569', fontWeight: 600, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: '60px', textAlign: 'center', color: '#334155' }}>
+                    <RefreshCw size={24} className="spin-slow" style={{ marginBottom: 12, opacity: 0.2 }} />
+                    <div style={{ fontSize: 12 }}>Syncing with RailSentry Database...</div>
+                  </td>
+                </tr>
+              ) : filtered.map((row, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.01)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '12px 20px', color: '#94a3b8', fontWeight: 600 }}>#{row.unit_id}</td>
+                  <td style={{ padding: '12px 20px', color: '#475569' }}>Cycle {row.cycle}</td>
+                  <td style={{ padding: '12px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ flex: 1, height: 4, width: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 2 }}>
+                        <div style={{ height: '100%', width: `${row.vibration_score * 100}%`, background: '#6366f1', borderRadius: 2 }} />
+                      </div>
+                      <span style={{ color: '#fff', fontSize: 12 }}>{Number(row.vibration_score).toFixed(3)}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: '12px 20px' }}>
+                    <span style={{
+                      padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+                      background: row.severity_score > 0.7 ? 'rgba(244,63,94,0.1)' : 'rgba(16,185,129,0.1)',
+                      color: row.severity_score > 0.7 ? '#f43f5e' : '#10b981',
+                      border: `1px solid ${row.severity_score > 0.7 ? 'rgba(244,63,94,0.2)' : 'rgba(16,185,129,0.2)'}`
+                    }}>
+                      {Number(row.severity_score).toFixed(2)}
+                    </span>
+                  </td>
+                  <td style={{ padding: '12px 20px', color: '#1e293b', fontSize: 11 }}>{new Date().toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+/* ── Zone Monitor View ── */
+const ZoneMonitorView = () => (
+  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div>
+      <h1 style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Geographic Zone Monitor</h1>
+      <p style={{ fontSize: 11, color: '#475569' }}>Real-time structural health distribution across Indian Railway networks</p>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
+      {ZONES.map(z => (
+        <StatCard key={z.zone} label={`${z.zone} Network`} value={String(z.active)} icon={Radar} accent={z.c} grad="linear-gradient(135deg,#0e0e28,#090916)" delta={z.alerts > 0 ? `+${z.alerts} Alerts` : 'Nominal'} positive={z.alerts === 0} />
+      ))}
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 16 }}>
+      <div className="premium-card" style={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', inset: 0, opacity: 0.05, background: 'radial-gradient(circle at center, #6366f1 0%, transparent 70%)' }} />
+        <div style={{ textAlign: 'center', zIndex: 1 }}>
+          <MapPin size={48} color="#6366f1" style={{ marginBottom: 16, opacity: 0.2 }} />
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Live GIS Heatmap</div>
+          <p style={{ fontSize: 11, color: '#334155', marginTop: 4 }}>Overlaying vibration anomalies on regional grid...</p>
+        </div>
+        {/* Animated Grid Lines */}
+        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(rgba(99,102,241,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(99,102,241,0.03) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="premium-card">
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 14 }}>Network Infrastructure</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[
+              { label: 'Signal Interlocking', val: 99.8, color: '#10b981' },
+              { label: 'Track Circuits', val: 94.2, color: '#6366f1' },
+              { label: 'Point Machines', val: 82.5, color: '#f59e0b' },
+              { label: 'OHE Voltage', val: 100, color: '#10b981' }
+            ].map(i => (
+              <div key={i.label}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: '#475569' }}>{i.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{i.val}%</span>
+                </div>
+                <div style={{ height: 3, borderRadius: 99, background: 'rgba(255,255,255,0.05)' }}>
+                  <div style={{ height: '100%', width: `${i.val}%`, background: i.color, borderRadius: 99 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="premium-card" style={{ flex: 1, background: 'linear-gradient(135deg,rgba(99,102,241,0.05),transparent)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <Shield size={14} color="#6366f1" />
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#fff' }}>Security Protocol Alpha</span>
+          </div>
+          <p style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.6 }}>
+            Automated track inspections are currently active in the **Western Ghats** section. High-frequency vibration sampling frequency increased to 500Hz.
+          </p>
+        </div>
+      </div>
+    </div>
+  </motion.div>
+);
+
+/* ── Alert Center View ── */
+const AlertCenterView = ({ alerts }: { alerts: Alert[] }) => (
+  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div>
+        <h1 style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Anomaly Command Center</h1>
+        <p style={{ fontSize: 11, color: '#475569' }}>Management of {alerts.length} active ML-detected threats</p>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600, background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)', color: '#f43f5e', cursor: 'pointer' }}>Clear Low Priority</button>
+        <button style={{ padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600, background: '#6366f1', border: 'none', color: '#fff', cursor: 'pointer', boxShadow: '0 4px 12px rgba(99,102,241,0.2)' }}>Export IRPWM Report</button>
+      </div>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 20 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {alerts.length > 0 ? alerts.map(a => (
+          <div key={a.id} className="premium-card" style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ padding: 12, borderRadius: 12, background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)' }}>
+              <AlertTriangle size={20} color="#f43f5e" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Anomalous Vibration Pattern</span>
+                <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(244,63,94,0.15)', color: '#f43f5e', fontWeight: 800 }}>CRITICAL</span>
+              </div>
+              <p style={{ fontSize: 12, color: '#94a3b8' }}>{a.message}</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: 11, color: '#1e293b', marginBottom: 4 }}>Observed at</div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>{new Date(a.timestamp).toLocaleTimeString()}</div>
+            </div>
+            <ChevronRight size={16} color="#1e293b" />
+          </div>
+        )) : (
+          <div style={{ padding: 100, textAlign: 'center', border: '1px dashed rgba(255,255,255,0.05)', borderRadius: 20 }}>
+            <CheckCircle2 size={48} color="#10b981" style={{ opacity: 0.1, marginBottom: 16 }} />
+            <div style={{ color: '#334155' }}>Queue empty. All threats neutralized.</div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="premium-card">
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 14 }}>Severity Distribution</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {[
+              { l: 'Critical', c: '#f43f5e', p: 15 },
+              { l: 'Warning', c: '#f59e0b', p: 45 },
+              { l: 'Information', c: '#6366f1', p: 40 }
+            ].map(i => (
+              <div key={i.l} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: i.c }} />
+                <span style={{ fontSize: 11, color: '#475569', flex: 1 }}>{i.l}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#fff' }}>{i.p}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="premium-card" style={{ background: 'linear-gradient(135deg,rgba(244,63,94,0.05),transparent)' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 10 }}>Smart Filtering</div>
+          <p style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.6 }}>
+            ML models are currently deduplicating adjacent segment anomalies to prevent alert fatigue. High-priority repair tokens are being prioritized.
+          </p>
+        </div>
+      </div>
+    </div>
+  </motion.div>
+);
+
 /* ── App Root ── */
 export default function App() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -673,45 +914,9 @@ export default function App() {
                 <Dashboard alerts={alerts} loading={loading} refresh={fetch} />
               </motion.div>
             )}
-            {tab === 'history' && (
-              <motion.div key="hist" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' }}>
-                <History size={42} color="rgba(99,102,241,0.15)" style={{ marginBottom: 14 }} />
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Historical Logs</div>
-                <p style={{ fontSize: 13, color: '#334155' }}>Connect to the backend to view historical anomaly data.</p>
-              </motion.div>
-            )}
-            {tab === 'zones' && (
-              <motion.div key="zones" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <div style={{ marginBottom: 20 }}>
-                  <h1 style={{ fontSize: 18, fontWeight: 800, color: '#fff', marginBottom: 4 }}>Zone Monitor</h1>
-                  <p style={{ fontSize: 11, color: '#1e293b' }}>Geographic zone health and sensor distribution</p>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14 }}>
-                  {ZONES.map(z => (
-                    <div key={z.zone} className="premium-card" style={{ border: `1px solid ${z.c}15` }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{z.zone}</span>
-                        <PulseDot color={z.c} />
-                      </div>
-                      <div style={{ fontSize: 28, fontWeight: 800, color: '#fff' }}>{z.active}</div>
-                      <p style={{ fontSize: 10, color: '#334155', marginTop: 2 }}>Active Sensors</p>
-                      <p style={{ fontSize: 11, fontWeight: 600, marginTop: 12, color: z.c }}>
-                        {z.alerts > 0 ? `⚠ ${z.alerts} alert${z.alerts > 1 ? 's' : ''}` : '✓ All Clear'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-            {tab === 'alerts' && (
-              <motion.div key="alrts" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' }}>
-                <Bell size={42} color="rgba(244,63,94,0.15)" style={{ marginBottom: 14 }} />
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', marginBottom: 8 }}>Alert Center</div>
-                <p style={{ fontSize: 13, color: '#334155' }}>Priority-queued alert management — coming soon.</p>
-              </motion.div>
-            )}
+            {tab === 'history' && <HistoricalLogs />}
+            {tab === 'zones' && <ZoneMonitorView />}
+            {tab === 'alerts' && <AlertCenterView alerts={alerts} />}
           </AnimatePresence>
         </div>
       </div>

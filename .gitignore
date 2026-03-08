@@ -1,0 +1,50 @@
+# Environments
+.env
+venv/
+env/
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Logs
+*.log
+backend_debug.log
+ml_inference_debug.log
+uvicorn_debug.log
+
+# Node/React
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Large/Temporary Data
+data/raw/
+data/processed/
+railway/models/
+railway/vector_db/
+legacy/
+tmp/
+
+# OS
+.DS_Store
+Thumbs.db

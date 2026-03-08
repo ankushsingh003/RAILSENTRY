@@ -29,7 +29,19 @@ _vector_db = None
 def get_llm():
     global _llm
     if _llm is None:
-        llm = ChatGoogleGenerativeAI(model="models/gemini-1.5-pro")
+        # Aggressively Reload .env to catch changes (strip anyway)
+        from dotenv import load_dotenv
+        load_dotenv(override=True)
+        google_api_key = os.getenv("GOOGLE_API_KEY")
+        if google_api_key:
+            google_api_key = google_api_key.strip(' "').strip("'")
+            os.environ["GOOGLE_API_KEY"] = google_api_key
+            print(f"--- API Key DEBUG: len={len(google_api_key)} prefix={google_api_key[:10]} suffix={google_api_key[-5:]} ---")
+            print(f"--- Key Matches Env: {google_api_key == os.getenv('GOOGLE_API_KEY')} ---")
+        
+        print("--- Initializing Gemini 1.5 Pro ---")
+        # Ensure model name is correct (no 'models/' prefix)
+        llm = ChatGoogleGenerativeAI(model="gemini-1.5-pro")
         # Bind tools to LLM
         tools = [check_maintenance_inventory, calculate_stress_index]
         _llm = llm.bind_tools(tools)

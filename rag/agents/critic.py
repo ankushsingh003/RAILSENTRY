@@ -15,10 +15,12 @@ async def critic_agent(state: AgentState):
     
     Keep your critique technical and concise."""
     
-    response = await llm.ainvoke(prompt)
-    critique = response.content
+    # Use astream for real-time streaming in LangGraph
+    full_content = ""
+    async for chunk in llm.astream(prompt):
+        full_content += chunk.content
     
-    state["critique"] = critique
+    state["critique"] = full_content
     state["iteration"] = state.get("iteration", 0) + 1
     
     print(f"--- Critic Agent: Iteration {state['iteration']} ---")
