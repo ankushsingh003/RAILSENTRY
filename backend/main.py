@@ -9,8 +9,9 @@ if ROOT_DIR not in sys.path:
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
-from rag.agents import run_kavach_agent
+from rag.agents import run_kavach_agent_legacy, stream_kavach_agent
 from typing import List, Dict
+from fastapi.responses import StreamingResponse
 
 app = FastAPI(title="Kavach-GenAI Backend API")
 
@@ -59,10 +60,22 @@ async def analyze_alert(alert: Dict[str, str]):
         if not log_message:
             raise HTTPException(status_code=400, detail="Alert message is required")
         
-        advice = run_kavach_agent(log_message)
+        advice = await run_kavach_agent_legacy(log_message)
         return {"advice": advice}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze_stream")
+async def analyze_alert_stream(alert: Dict[str, str]):
+    """Streams the Agentic RAG reasoning process."""
+    log_message = alert.get("message")
+    if not log_message:
+        raise HTTPException(status_code=400, detail="Alert message is required")
+    
+    return StreamingResponse(
+        stream_kavach_agent(log_message),
+        media_type="text/event-stream"
+    )
 
 @app.get("/historical_data")
 async def get_historical_data():

@@ -3,6 +3,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 
+from .tools import check_maintenance_inventory, calculate_stress_index
+
 # --- State Definition ---
 class AgentState(TypedDict):
     anomaly_report: str
@@ -11,6 +13,10 @@ class AgentState(TypedDict):
     maintenance_plan: str
     validation_status: str
     final_advice: str
+    tool_outputs: list # Track tool interactions
+    critique: str      # Self-correction feedback
+    iteration: int     # Debate loop counter
+    past_history: str  # Historical context from memory
 
 _llm = None
 _vector_db = None
@@ -19,7 +25,10 @@ _vector_db = None
 def get_llm():
     global _llm
     if _llm is None:
-        _llm = ChatGoogleGenerativeAI(model="models/gemini-1.5-pro")
+        llm = ChatGoogleGenerativeAI(model="models/gemini-1.5-pro")
+        # Bind tools to LLM
+        tools = [check_maintenance_inventory, calculate_stress_index]
+        _llm = llm.bind_tools(tools)
     return _llm
 
 def get_vector_db():

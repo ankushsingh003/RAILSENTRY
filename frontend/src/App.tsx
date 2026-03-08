@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
 
 interface Alert { id: number; message: string; timestamp: string; }
 
@@ -266,7 +266,10 @@ const AlertCard = ({ alert, selected, onClick }: { alert: Alert; selected: boole
 };
 
 /* ── AI Advisor ── */
-const Advisor = ({ alert, advice, loading }: { alert: Alert | null; advice: string; loading: boolean }) => (
+const Advisor = ({ alert, advice, loading, streamInfo }: {
+  alert: Alert | null; advice: string; loading: boolean;
+  streamInfo: { node: string; tool: string; status: string }
+}) => (
   <div style={{
     display: 'flex', flexDirection: 'column', minHeight: 500, borderRadius: 16, overflow: 'hidden',
     background: 'linear-gradient(160deg,#0c0c1e 0%,#090914 100%)',
@@ -290,13 +293,13 @@ const Advisor = ({ alert, advice, loading }: { alert: Alert | null; advice: stri
       </div>
       <div>
         <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Intelligent Advisor</div>
-        <div style={{ fontSize: 10, color: 'rgba(139,92,246,0.6)' }}>Gemini 1.5 Pro · IRPWM Knowledge Base</div>
+        <div style={{ fontSize: 10, color: 'rgba(139,92,246,0.6)' }}>Gemini 1.5 Pro · RAG 2.0 Streaming</div>
       </div>
     </div>
 
     {/* Body */}
     <div style={{ flex: 1, padding: '18px', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      {loading ? (
+      {loading && !advice ? (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           <div style={{ position: 'relative', width: 60, height: 60 }}>
             <div className="spin-slow" style={{
@@ -307,51 +310,49 @@ const Advisor = ({ alert, advice, loading }: { alert: Alert | null; advice: stri
             <ShieldCheck size={20} color="#6366f1" style={{ position: 'absolute', inset: 0, margin: 'auto' }} />
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 6 }}>Deploying Agent Pipeline</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 6 }}>{streamInfo.status || 'Deploying Agent Pipeline'}</div>
             <p style={{ fontSize: 11, color: '#475569', maxWidth: 200, lineHeight: 1.6 }}>
-              Consulting IRPWM manuals & cross-referencing 2026 Safety Circulars...
+              {streamInfo.node || 'Consulting IRPWM manuals...'}
             </p>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%', maxWidth: 240, marginTop: 8 }}>
-            {['Ingestion Agent', 'Research Agent', 'Planning Agent', 'Validation Agent'].map((a, i) => (
-              <motion.div key={a}
-                initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.3 }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 10, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.1)' }}>
-                <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.25 }}
-                  style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1' }} />
-                <span style={{ fontSize: 11, color: '#64748b' }}>{a}</span>
-              </motion.div>
-            ))}
-          </div>
+          {streamInfo.tool && (
+            <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+              style={{ padding: '8px 14px', borderRadius: 10, background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Zap size={14} color="#8b5cf6" className="animate-pulse" />
+              <span style={{ fontSize: 11, fontWeight: 600, color: '#a78bfa' }}>{streamInfo.tool}</span>
+            </motion.div>
+          )}
         </div>
       ) : advice ? (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 10, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
             <CheckCircle2 size={14} color="#10b981" />
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#10b981' }}>SOP Validated · Safety Compliant · IRPWM §2026</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#10b981' }}>{loading ? 'Streaming Reasoning...' : 'SOP Validated · Reliability High'}</span>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {advice.split('\n').filter(l => l.trim()).map((line, i) => (
-              <p key={i} style={{ fontSize: 13, lineHeight: 1.7, color: '#64748b' }}>{line}</p>
+              <p key={i} style={{ fontSize: 13, lineHeight: 1.7, color: '#94a3b8' }}>{line}</p>
             ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-            <button style={{
-              padding: '12px', borderRadius: 12, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              fontSize: 13, fontWeight: 600, color: '#fff',
-              background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-              boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
-            }}>
-              <Wrench size={13} /> Work Order
-            </button>
-            <button style={{
-              padding: '12px', borderRadius: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              fontSize: 13, fontWeight: 600, color: '#94a3b8',
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-            }}>
-              <Train size={13} /> Dispatch
-            </button>
-          </div>
+          {!loading && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, paddingTop: 14, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <button style={{
+                padding: '12px', borderRadius: 12, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                fontSize: 13, fontWeight: 600, color: '#fff',
+                background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                boxShadow: '0 4px 20px rgba(99,102,241,0.3)',
+              }}>
+                <Wrench size={13} /> Work Order
+              </button>
+              <button style={{
+                padding: '12px', borderRadius: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                fontSize: 13, fontWeight: 600, color: '#94a3b8',
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+              }}>
+                <Train size={13} /> Dispatch
+              </button>
+            </div>
+          )}
         </motion.div>
       ) : (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center' }}>
@@ -373,16 +374,16 @@ const Advisor = ({ alert, advice, loading }: { alert: Alert | null; advice: stri
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 6 }}>Agentic Reasoning System</div>
-            <p style={{ fontSize: 12, color: '#334155', maxWidth: 200, lineHeight: 1.6 }}>
-              {alert ? 'Processing...' : 'Select an anomaly alert to invoke the RailSentry AI expert system'}
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#fff', marginBottom: 6 }}>RAG 2.0 Reasoning Engine</div>
+            <p style={{ fontSize: 12, color: '#475569', maxWidth: 200, lineHeight: 1.6 }}>
+              {alert ? 'Initializing...' : 'Select an anomaly alert to invoke the RailSentry AI expert system'}
             </p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', maxWidth: 220 }}>
-            {['Ingestion', 'Research', 'Planning', 'Validation'].map(a => (
+            {['Streaming', 'Tool-Use', 'Planning', 'Validation'].map(a => (
               <div key={a} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 10px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#1e293b' }} />
-                <span style={{ fontSize: 10, color: '#1e293b' }}>{a}</span>
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: '#6366f1' }} />
+                <span style={{ fontSize: 10, color: '#64748b' }}>{a}</span>
               </div>
             ))}
           </div>
@@ -397,16 +398,58 @@ const Dashboard = ({ alerts, loading, refresh }: { alerts: Alert[]; loading: boo
   const [sel, setSel] = useState<Alert | null>(null);
   const [advice, setAdvice] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
+  const [streamInfo, setStreamInfo] = useState({ node: '', tool: '', status: '' });
 
   const analyze = async (a: Alert) => {
     if (sel?.id === a.id && advice) return;
     setSel(a); setAdvice(''); setAnalyzing(true);
+    setStreamInfo({ node: '', tool: '', status: 'Contacting RailSentry...' });
+
     try {
-      const r = await axios.post(`${API_BASE}/analyze`, { message: a.message });
-      setAdvice(r.data.advice);
-    } catch {
-      setAdvice('Could not connect to backend. Run: python backend/main.py');
-    } finally { setAnalyzing(false); }
+      const response = await fetch(`${API_BASE}/analyze_stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: a.message }),
+      });
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) throw new Error("No reader");
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.type === 'token') {
+                setAdvice(prev => prev + data.content);
+              } else if (data.type === 'node') {
+                setStreamInfo(prev => ({ ...prev, node: data.content }));
+              } else if (data.type === 'tool') {
+                setStreamInfo(prev => ({ ...prev, tool: data.content }));
+              } else if (data.type === 'status') {
+                setStreamInfo(prev => ({ ...prev, status: data.content }));
+              } else if (data.type === 'done') {
+                setAnalyzing(false);
+              }
+            } catch (e) {
+              console.error("Stream parse error", e);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      setAdvice('Stream error. Check backend: python backend/main.py');
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const TOOLTIP_STYLE = { background: '#0f0f1e', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, fontSize: 11, color: '#e2e8f0' };
@@ -497,7 +540,7 @@ const Dashboard = ({ alerts, loading, refresh }: { alerts: Alert[]; loading: boo
           </div>
         </div>
 
-        <Advisor alert={sel} advice={advice} loading={analyzing} />
+        <Advisor alert={sel} advice={advice} loading={analyzing} streamInfo={streamInfo} />
       </div>
 
       {/* Zone Chart + Segment Health */}
