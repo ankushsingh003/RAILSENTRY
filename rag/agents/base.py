@@ -38,9 +38,8 @@ def get_llm(force_reload: bool = False):
             os.environ["GOOGLE_API_KEY"] = google_api_key
             print(f"--- API Key loaded: len={len(google_api_key)} ok ---")
 
-        print("--- Initializing Gemini 1.5 Flash ---")
-        # gemini-1.5-flash is widely available and fast
-        llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash")
+        print("--- Initializing Gemini 2.5 Flash ---")
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
         # Bind tools to LLM
         tools = [check_maintenance_inventory, calculate_stress_index]
         _llm = llm.bind_tools(tools)

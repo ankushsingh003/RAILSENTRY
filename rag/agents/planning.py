@@ -21,7 +21,10 @@ async def planning_agent(state: AgentState):
     # Use astream for real-time streaming in LangGraph
     full_content = ""
     async for chunk in llm.astream(prompt):
-        full_content += chunk.content
+        content = chunk.content
+        if isinstance(content, list):
+            content = "".join([c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"])
+        full_content += content
     
     state["maintenance_plan"] = full_content
     print(f"--- Planning Agent: Created/Refined Plan ---")

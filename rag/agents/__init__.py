@@ -72,7 +72,9 @@ async def stream_kavach_agent(log_report: str):
             # Token streaming for LLM generation
             if kind == "on_chat_model_stream":
                 content = event["data"]["chunk"].content
-                if content:
+                if isinstance(content, list):
+                    content = "".join([c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"])
+                if content and isinstance(content, str):
                     yield sse("token", content)
             
             # Node lifecycle tracking
