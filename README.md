@@ -23,18 +23,25 @@ graph TD
 
     subgraph "ML Core (PyTorch)"
         DC --> INF[LSTM Inference Engine]
-        INF --> LOGS[Anomaly Event Logs]
+        INF --> LOGS[(event_logs.txt)]
     end
 
     subgraph "Backend API (FastAPI)"
         LOGS --> API[FastAPI Server]
-        API --> AUTH[Auth & Context]
+        API --> STREAM[Streaming Response /SSE]
     end
 
     subgraph "Agentic RAG Layer (LangGraph)"
-        API --> AGENTS[RailSentry Agents]
-        AGENTS --> KB[(Vector DB: IRPWM Manuals)]
-        AGENTS --> LLM[Gemini 1.5 Pro]
+        STREAM --> ORCH[Workflow Orchestrator]
+        subgraph "Multi-Agent Pipeline"
+            ORCH --> IG[Ingestion Agent]
+            IG --> RS[Research Agent]
+            RS --> PL[Planning Agent]
+            PL <--> CR[Critic Agent]
+            CR --> VL[Validation Agent]
+        end
+        RS --> KB[(Vector DB: IRPWM Manuals)]
+        Multi-Agent Pipeline --> LLM[Gemini 1.5 Pro]
     end
 
     subgraph "Frontend Cockpit (React/TS)"
@@ -52,21 +59,26 @@ When an anomaly is detected, the **RailSentry AI** advisor follows this orchestr
 sequenceDiagram
     participant S as Sensors
     participant M as LSTM Model
-    participant B as Backend API
-    participant A as RailSentry Agents
+    participant B as Backend (FastAPI)
+    participant O as LangGraph Orchestrator
+    participant A as Specialist Agents
     participant V as Vector DB (SOPs)
 
     S->>M: Continuous Telemetry
     M->>M: Detect Anomaly
-    M->>B: Generate Event Log
-    B->>B: Post to Live Feed
-    Note over B,A: User selects alert in Dashboard
-    B->>A: Invoke Agent Pipeline
-    A->>V: Research Agent: Query IRPWM Manuals
-    V-->>A: Retrieve relevant SOPs & Manuals
-    A->>A: Planning Agent: Draft Repair SOP
-    A->>A: Validation Agent: Check 2026 Safety Circulars
-    A-->>B: Return Refined Expert Advice
+    M->>B: Log Event to event_logs.txt
+    B->>B: `/alerts` endpoint active
+    Note over B,O: User triggers /analyze_stream
+    B->>O: Start Agentic Pipeline
+    O->>A: [Ingestion] Process Log Context
+    A->>V: [Research] Query IRPWM Manuals
+    V-->>A: Retrieve relevant SOPs
+    loop Refinement Cycle
+        A->>A: [Planning] Draft Maintenance SOP
+        A->>A: [Critic] Audit & Feedback
+    end
+    A->>A: [Validation] Final Safety Check
+    A-->>B: Stream SSE Events (status, node, token)
     B-->>B: Render in Intelligent Advisor Panel
 ```
 
